@@ -41,8 +41,8 @@ export default function FoodManager() {
 
     useEffect(() => {
         Promise.all([
-            fetch('http://localhost:8080/api/foods').then(res => res.json()),
-            fetch('http://localhost:8080/api/categories').then(res => res.json())
+            fetch('https://honviet-ryt3.onrender.com/api/foods').then(res => res.json()),
+            fetch('https://honviet-ryt3.onrender.com/api/categories').then(res => res.json())
         ])
             .then(([foodsData, categoriesData]) => {
                 setFoods(foodsData);
@@ -56,7 +56,7 @@ export default function FoodManager() {
     }, []);
 
     const getFoods = () => {
-        fetch('http://localhost:8080/api/foods')
+        fetch('https://honviet-ryt3.onrender.com/api/foods')
             .then(res => res.json())
             .then(data => setFoods(data))
             .catch(err => console.error("Lỗi lấy danh sách món ăn:", err));
@@ -97,7 +97,7 @@ export default function FoodManager() {
         if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:')) {
             return url;
         }
-        return `http://localhost:8080${url.startsWith('/') ? '' : '/'}${url}`;
+        return `https://honviet-ryt3.onrender.com${url.startsWith('/') ? '' : '/'}${url}`;
     };
 
     const handleFileChange = (e) => {
@@ -126,7 +126,7 @@ export default function FoodManager() {
                 const uploadFormData = new FormData();
                 uploadFormData.append('file', selectedFile);
 
-                const uploadRes = await fetch('http://localhost:8080/api/foods/upload', {
+                const uploadRes = await fetch('https://honviet-ryt3.onrender.com/api/foods/upload', {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}` },
                     body: uploadFormData
@@ -145,7 +145,7 @@ export default function FoodManager() {
                 category: formData.categoryId ? { categoryId: Number(formData.categoryId) } : null
             };
 
-            const url = editingId ? `http://localhost:8080/api/foods/${editingId}` : 'http://localhost:8080/api/foods';
+            const url = editingId ? `https://honviet-ryt3.onrender.com/api/foods/${editingId}` : 'https://honviet-ryt3.onrender.com/api/foods';
             const method = editingId ? 'PUT' : 'POST';
 
             const res = await fetch(url, {
@@ -181,7 +181,7 @@ export default function FoodManager() {
 
     const handleDelete = (id) => {
         if (window.confirm("Món ăn này sẽ bị xóa khỏi hệ thống thực đơn Hồn Việt?")) {
-            fetch(`http://localhost:8080/api/foods/${id}`, {
+            fetch(`https://honviet-ryt3.onrender.com/api/foods/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             })

@@ -66,7 +66,7 @@ function LoginRegister() {
         try {
             if (isRegistering) {
                 // ĐĂNG KÝ BƯỚC 1: Gọi API để lưu tài khoản (isVerified = false) và gửi OTP về Mail
-                await axios.post("http://localhost:8080/api/users", {
+                await axios.post("https://honviet-ryt3.onrender.com/api/users", {
                     username,
                     password,
                     email,
@@ -87,7 +87,7 @@ function LoginRegister() {
                 setShowOtpModal(true);
             } else {
                 // ĐĂNG NHẬP
-                const response = await axios.post("http://localhost:8080/api/users/login", {
+                const response = await axios.post("https://honviet-ryt3.onrender.com/api/users/login", {
                     usernameOrEmail: username,
                     password,
                 });
@@ -95,7 +95,7 @@ function LoginRegister() {
                 const token = response.data.accessToken || response.data.token;
                 localStorage.setItem("accessToken", token);
 
-                const userResponse = await axios.get("http://localhost:8080/api/users/me", {
+                const userResponse = await axios.get("https://honviet-ryt3.onrender.com/api/users/me", {
                     headers: {
                         Authorization: `Bearer ${token}`
                     }
@@ -157,7 +157,7 @@ function LoginRegister() {
 
         setIsVerifyingOtp(true);
         try {
-            await axios.post("http://localhost:8080/api/users/verify-otp", {
+            await axios.post("https://honviet-ryt3.onrender.com/api/users/verify-otp", {
                 email: email,
                 otp: otpCode,
             });

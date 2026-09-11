@@ -159,7 +159,7 @@ export default function CartPage() {
         };
 
         try {
-            await axios.post('http://localhost:8080/api/orders', orderPayload, {
+            await axios.post('https://honviet-ryt3.onrender.com/api/orders', orderPayload, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             toast({

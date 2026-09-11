@@ -80,7 +80,7 @@ export default function ShipperOrders() {
         setLoading(true);
         try {
             // Lấy danh sách từ API công khai hoặc API shipper
-            const response = await axios.get('http://localhost:8080/api/orders', {
+            const response = await axios.get('https://honviet-ryt3.onrender.com/api/orders', {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
@@ -143,7 +143,7 @@ export default function ShipperOrders() {
         setActionLoadingId(orderId);
         try {
             const res = await axios.put(
-                `http://localhost:8080/api/orders/${orderId}/shipper-status?status=${newStatus}`,
+                `https://honviet-ryt3.onrender.com/api/orders/${orderId}/shipper-status?status=${newStatus}`,
                 {},
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -161,7 +161,7 @@ export default function ShipperOrders() {
             // Trường hợp endpoint shipper-status chưa có, fallback sang endpoint update chung
             try {
                 await axios.put(
-                    `http://localhost:8080/api/orders/${orderId}/status?status=${newStatus}`,
+                    `https://honviet-ryt3.onrender.com/api/orders/${orderId}/status?status=${newStatus}`,
                     {},
                     { headers: { Authorization: `Bearer ${token}` } }
                 );

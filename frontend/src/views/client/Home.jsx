@@ -104,7 +104,7 @@ export default function Home() {
         const fetchFeaturedFoods = async () => {
             try {
                 setLoading(true);
-                const response = await axios.get('http://localhost:8080/api/foods');
+                const response = await axios.get('https://honviet-ryt3.onrender.com/api/foods');
                 setFeaturedFoods(response.data.slice(0, 4));
                 updateCartCount();
                 setLoading(false);

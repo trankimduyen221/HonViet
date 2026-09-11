@@ -75,7 +75,7 @@ export default function OrdersTable() {
     const fetchOrders = async () => {
         try {
             setLoading(true);
-            const response = await axios.get('http://localhost:8080/api/orders', {
+            const response = await axios.get('https://honviet-ryt3.onrender.com/api/orders', {
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },
@@ -107,7 +107,7 @@ export default function OrdersTable() {
 
         try {
             const response = await axios.put(
-                `http://localhost:8080/api/orders/${orderId}/status?status=${newStatus}`,
+                `https://honviet-ryt3.onrender.com/api/orders/${orderId}/status?status=${newStatus}`,
                 {},
                 {
                     headers: {

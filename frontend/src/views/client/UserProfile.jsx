@@ -64,7 +64,7 @@ export default function UserProfile() {
         const fetchUserProfile = async () => {
             try {
                 setLoading(true);
-                const response = await axios.get('http://localhost:8080/api/users/me', {
+                const response = await axios.get('https://honviet-ryt3.onrender.com/api/users/me', {
                     headers: { Authorization: `Bearer ${token}` }
                 });
 
@@ -112,7 +112,7 @@ export default function UserProfile() {
                 const imageFormData = new FormData();
                 imageFormData.append('file', avatarFile); // Đúng key @RequestParam("file")
 
-                const uploadResponse = await axios.post('http://localhost:8080/api/users/me/avatar', imageFormData, {
+                const uploadResponse = await axios.post('https://honviet-ryt3.onrender.com/api/users/me/avatar', imageFormData, {
                     headers: {
                         Authorization: `Bearer ${token}`,
                         'Content-Type': 'multipart/form-data'
@@ -126,7 +126,7 @@ export default function UserProfile() {
             }
 
             // BƯỚC B: Gửi cập nhật thông tin chữ qua JSON lên API cập nhật (Hàm số 5 trong Backend)
-            const response = await axios.put('http://localhost:8080/api/users/me', {
+            const response = await axios.put('https://honviet-ryt3.onrender.com/api/users/me', {
                 username: profile.username,
                 email: profile.email,
                 avatar: currentAvatarUrl // Truyền link ảnh sang để Backend đồng bộ vào DB

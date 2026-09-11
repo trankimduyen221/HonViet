@@ -70,7 +70,7 @@ export default function UserManager() {
     const loadUsers = async () => {
         setLoading(true);
         try {
-            const response = await fetch('http://localhost:8080/api/users', {
+            const response = await fetch('https://honviet-ryt3.onrender.com/api/users', {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -144,7 +144,7 @@ export default function UserManager() {
 
         try {
             // 💡 Gọi chính xác tới đường dẫn PUT admin-update của id cần sửa
-            const response = await fetch(`http://localhost:8080/api/users/admin-update/${editingUserId}`, {
+            const response = await fetch(`https://honviet-ryt3.onrender.com/api/users/admin-update/${editingUserId}`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -171,7 +171,7 @@ export default function UserManager() {
     const handleDelete = async (userId, username) => {
         if (window.confirm(`Bạn có chắc muốn xóa tài khoản [${username}]?`)) {
             try {
-                const response = await fetch(`http://localhost:8080/api/users/admin-delete/${userId}`, {
+                const response = await fetch(`https://honviet-ryt3.onrender.com/api/users/admin-delete/${userId}`, {
                     method: 'DELETE',
                     headers: {
                         'Authorization': `Bearer ${token}`

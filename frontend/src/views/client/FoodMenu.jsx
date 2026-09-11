@@ -82,8 +82,8 @@ export default function FoodMenu() {
             try {
                 setLoading(true);
                 const [foodRes, catRes] = await Promise.all([
-                    axios.get('http://localhost:8080/api/foods'),
-                    axios.get('http://localhost:8080/api/categories')
+                    axios.get('https://honviet-ryt3.onrender.com/api/foods'),
+                    axios.get('https://honviet-ryt3.onrender.com/api/categories')
                 ]);
                 setFoods(foodRes.data);
                 setCategories(catRes.data);

@@ -87,7 +87,7 @@ export default function CustomerHistory() {
     const fetchMyOrders = async () => {
         try {
             setLoading(true);
-            const response = await axios.get('http://localhost:8080/api/users/my-orders', {
+            const response = await axios.get('https://honviet-ryt3.onrender.com/api/users/my-orders', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setOrders(response.data);
@@ -133,7 +133,7 @@ export default function CustomerHistory() {
             return;
         }
         try {
-            const response = await axios.put(`http://localhost:8080/api/orders/${orderId}/cancel`, {}, {
+            const response = await axios.put(`https://honviet-ryt3.onrender.com/api/orders/${orderId}/cancel`, {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             toast({

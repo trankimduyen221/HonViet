@@ -70,7 +70,7 @@ export default function CategoryManager() {
     const loadCategories = async () => {
         setLoading(true);
         try {
-            const res = await axios.get('http://localhost:8080/api/categories');
+            const res = await axios.get('https://honviet-ryt3.onrender.com/api/categories');
             setCategories(res.data);
         } catch (err) {
             console.error("Lỗi tải danh mục:", err);
@@ -142,11 +142,11 @@ export default function CategoryManager() {
         try {
             if (editingId) {
                 // CẬP NHẬT (PUT)
-                await axios.put(`http://localhost:8080/api/categories/${editingId}`, payload, config);
+                await axios.put(`https://honviet-ryt3.onrender.com/api/categories/${editingId}`, payload, config);
                 toast({ title: "Cập nhật thành công", status: "success", position: "top", duration: 2000 });
             } else {
                 // TẠO MỚI (POST)
-                await axios.post('http://localhost:8080/api/categories', payload, config);
+                await axios.post('https://honviet-ryt3.onrender.com/api/categories', payload, config);
                 toast({ title: "Thành công", description: "Đã thêm danh mục mới", status: "success", position: "top", duration: 2000 });
             }
 
@@ -174,7 +174,7 @@ export default function CategoryManager() {
             }
 
             try {
-                await axios.delete(`http://localhost:8080/api/categories/${id}`, {
+                await axios.delete(`https://honviet-ryt3.onrender.com/api/categories/${id}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 toast({ title: "Đã xóa thành công", status: "info", position: "top", duration: 2000 });
