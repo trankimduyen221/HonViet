@@ -13,26 +13,21 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        // 1. Mở CORS cho tất cả API
-        registry.addMapping("/api/**")
-                .allowedOrigins("*")
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                .allowedHeaders("*");
-
-        // 2. Mở CORS riêng cho đường dẫn tải file ảnh tĩnh
-        registry.addMapping("/uploads/**")
-                .allowedOrigins("*")
-                .allowedMethods("GET", "HEAD", "OPTIONS")
-                .allowedHeaders("*");
+        // Cấu hình CORS toàn cục cho tất cả endpoint
+        registry.addMapping("/**")
+                .allowedOriginPatterns("https://*.vercel.app", "http://localhost:*") // Mở cho tất cả domain Vercel & Localhost
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD")
+                .allowedHeaders("*")
+                .allowCredentials(true); // Cho phép gửi kèm Cookie / Token xác thực
     }
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // Lấy đường dẫn tuyệt đối chính xác tới thư mục "uploads" ở gốc project
+        // Lấy đường dẫn tuyệt đối tới thư mục "uploads" ở gốc project
         Path uploadDir = Paths.get("uploads");
         String uploadPath = uploadDir.toFile().getAbsolutePath();
 
-        // Cấu hình Spring Boot biến /uploads/** thành cổng tĩnh public
+        // Biến /uploads/** thành cổng tĩnh public
         registry.addResourceHandler("/uploads/**")
                 .addResourceLocations("file:/" + uploadPath + "/");
     }
