@@ -15,7 +15,7 @@ public class WebConfig implements WebMvcConfigurer {
     public void addCorsMappings(CorsRegistry registry) {
         // Cấu hình CORS toàn cục cho tất cả endpoint
         registry.addMapping("/**")
-                .allowedOriginPatterns("https://*.vercel.app", "http://localhost:*") // Mở cho tất cả domain Vercel & Localhost
+                .allowedOriginPatterns("*") // Mở rộng pattern cho tất cả origin, hoàn toàn tương thích với allowCredentials(true)
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD")
                 .allowedHeaders("*")
                 .allowCredentials(true); // Cho phép gửi kèm Cookie / Token xác thực
