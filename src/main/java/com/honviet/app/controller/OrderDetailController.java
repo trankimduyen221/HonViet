@@ -11,7 +11,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/orderdetails")
-@CrossOrigin("*") // Dòng này để VS Code gọi API thoải mái không bị block
 public class OrderDetailController {
 
     @Autowired

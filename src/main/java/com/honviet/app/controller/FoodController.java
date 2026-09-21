@@ -18,7 +18,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/foods")
-@CrossOrigin("*") // Dòng này để VS Code gọi API thoải mái không bị block
 public class FoodController {
 
     @Autowired

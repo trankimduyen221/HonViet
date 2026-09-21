@@ -17,7 +17,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/orders")
-@CrossOrigin("*") // Giúp React kết nối API không bị lỗi CORS
 public class OrderController {
 
     @Autowired

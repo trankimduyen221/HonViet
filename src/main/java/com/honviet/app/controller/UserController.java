@@ -31,7 +31,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/api/users")
-@CrossOrigin("*")
 public class UserController {
 
     @Autowired
