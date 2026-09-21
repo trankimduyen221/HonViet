@@ -14,6 +14,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -48,6 +49,9 @@ public class UserController {
     @Autowired
     private com.honviet.app.security.JwtTokenProvider tokenProvider;
 
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     // Bộ nhớ tạm lưu thông tin đăng ký chờ xác thực OTP (Key: Email, Value: Thông tin User)
     private final Map<String, User> pendingUsers = new ConcurrentHashMap<>();
 
@@ -59,7 +63,7 @@ public class UserController {
 
             if (user != null && !Boolean.TRUE.equals(user.getIsVerified())) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body("Tài khoản chưa được kích hoạt qua Email! Vui lòng xác thực mã OTP.");
+                        .body(Map.of("message", "Tài khoản chưa được kích hoạt qua Email! Vui lòng xác thực mã OTP."));
             }
 
             Authentication authentication = authenticationManager.authenticate(
@@ -78,73 +82,104 @@ public class UserController {
             return ResponseEntity.ok(response);
 
         } catch (AuthenticationException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Sai tài khoản hoặc mật khẩu!");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Sai tài khoản hoặc mật khẩu!"));
         }
     }
 
-    // 2. ĐĂNG KÝ BƯỚC 1: Kiểm tra thông tin & gửi OTP (Bất đồng bộ - Tương thích @Async)
+    // 2. ĐĂNG KÝ BƯỚC 1: Kiểm tra thông tin & gửi OTP
     @PostMapping
     public ResponseEntity<?> createUser(@RequestBody User user) {
-        if (userService.findByUsernameOrEmail(user.getUsername(), "") != null) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Tên tài khoản này đã được sử dụng!");
+        try {
+            if (user.getUsername() != null && userService.findByUsernameOrEmail(user.getUsername(), "") != null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("message", "Tên tài khoản này đã được sử dụng!"));
+            }
+            if (user.getEmail() != null && userService.findByUsernameOrEmail("", user.getEmail()) != null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("message", "Email này đã được đăng ký!"));
+            }
+            if (user.getPhoneNumber() != null && userService.findByPhoneNumber(user.getPhoneNumber()) != null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("message", "Số điện thoại này đã được sử dụng!"));
+            }
+
+            // Gán role mặc định nếu chưa truyền vào
+            if (user.getRole() == null || user.getRole().trim().isEmpty()) {
+                user.setRole("ROLE_USER");
+            }
+
+            // Tạo mã OTP ngẫu nhiên 6 chữ số
+            String otp = String.format("%06d", new Random().nextInt(999999));
+
+            user.setIsVerified(false);
+            user.setOtpCode(otp);
+            user.setOtpExpiryTime(LocalDateTime.now().plusMinutes(5));
+
+            // Thử gửi Email trước, nếu lỗi sẽ nhảy vào catch
+            try {
+                emailService.sendOtpEmail(user.getEmail(), otp);
+            } catch (Exception e) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(Map.of("message", "Không thể gửi email OTP. Vui lòng kiểm tra lại địa chỉ email!"));
+            }
+
+            // Lưu tạm vào RAM sau khi đã kích hoạt gửi mail thành công
+            pendingUsers.put(user.getEmail(), user);
+
+            return ResponseEntity.ok(Map.of(
+                    "message", "Mã OTP đã được gửi tới email của bạn. Vui lòng xác thực để hoàn tất đăng ký!",
+                    "email", user.getEmail()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "Lỗi máy chủ khi tạo tài khoản: " + e.getMessage()));
         }
-        if (userService.findByUsernameOrEmail("", user.getEmail()) != null) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Email này đã được đăng ký!");
-        }
-        if (userService.findByPhoneNumber(user.getPhoneNumber()) != null) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Số điện thoại này đã được sử dụng!");
-        }
-
-        // Tạo mã OTP ngẫu nhiên 6 chữ số
-        String otp = String.format("%06d", new Random().nextInt(999999));
-
-        user.setIsVerified(false);
-        user.setOtpCode(otp);
-        user.setOtpExpiryTime(LocalDateTime.now().plusMinutes(5));
-
-        // Lưu tạm vào bộ nhớ RAM trước
-        pendingUsers.put(user.getEmail(), user);
-
-        // Kích hoạt gửi mail chạy ngầm qua @Async (không bắt Frontend chờ)
-        emailService.sendOtpEmail(user.getEmail(), otp);
-
-        return ResponseEntity.ok(Map.of(
-                "message", "Mã OTP đã được gửi tới email của bạn. Vui lòng xác thực để hoàn tất đăng ký!",
-                "email", user.getEmail()
-        ));
     }
 
-    // 3. ĐĂNG KÝ BƯỚC 2: Xác thực mã OTP -> LÚC NÀY MỚI LƯU CHÍNH THỨC VÀO DATABASE
+    // 3. ĐĂNG KÝ BƯỚC 2: Xác thực mã OTP -> Mã hóa Password & Lưu vào Database
     @PostMapping("/verify-otp")
     public ResponseEntity<?> verifyOtp(@RequestBody Map<String, String> request) {
         String email = request.get("email");
         String otp = request.get("otp");
 
+        if (email == null || otp == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "Vui lòng cung cấp đầy đủ email và mã OTP!"));
+        }
+
         User pendingUser = pendingUsers.get(email);
 
         if (pendingUser == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body("Yêu cầu đăng ký không tồn tại hoặc đã hết hạn! Vui lòng đăng ký lại.");
+                    .body(Map.of("message", "Yêu cầu đăng ký không tồn tại hoặc đã hết hạn! Vui lòng đăng ký lại."));
         }
 
         if (pendingUser.getOtpCode() == null || !pendingUser.getOtpCode().equals(otp)) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Mã OTP không chính xác!");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "Mã OTP không chính xác!"));
         }
 
         if (pendingUser.getOtpExpiryTime().isBefore(LocalDateTime.now())) {
             pendingUsers.remove(email);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Mã OTP đã hết hạn! Vui lòng đăng ký lại.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "Mã OTP đã hết hạn! Vui lòng đăng ký lại."));
         }
 
-        // Xác thực thành công: Lưu chính thức vào Database
+        // Xác thực thành công: Mã hóa mật khẩu & Lưu chính thức vào Database
         pendingUser.setIsVerified(true);
         pendingUser.setOtpCode(null);
         pendingUser.setOtpExpiryTime(null);
 
-        userService.saveUser(pendingUser); // Lưu vào TiDB Cloud
+        // Mã hóa mật khẩu trước khi lưu nếu chưa mã hóa
+        if (pendingUser.getPassword() != null && !pendingUser.getPassword().startsWith("$2a$")) {
+            pendingUser.setPassword(passwordEncoder.encode(pendingUser.getPassword()));
+        }
+
+        userService.saveUser(pendingUser); // Lưu vào DB
         pendingUsers.remove(email);       // Xóa thông tin tạm
 
-        return ResponseEntity.ok("Xác thực tài khoản thành công! Bạn có thể đăng nhập ngay bây giờ.");
+        return ResponseEntity.ok(Map.of("message", "Xác thực tài khoản thành công! Bạn có thể đăng nhập ngay bây giờ."));
     }
 
     // 4. XEM DANH SÁCH (CHỈ ADMIN)
@@ -158,14 +193,16 @@ public class UserController {
     @GetMapping("/me")
     public ResponseEntity<?> getCurrentUser(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Bạn chưa đăng nhập!");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Bạn chưa đăng nhập!"));
         }
 
         String currentUsername = authentication.getName();
         User currentUser = userService.findByUsernameOrEmail(currentUsername, "");
 
         if (currentUser == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Không tìm thấy thông tin tài khoản!");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", "Không tìm thấy thông tin tài khoản!"));
         }
 
         return ResponseEntity.ok(currentUser);
@@ -175,14 +212,16 @@ public class UserController {
     @PutMapping("/me")
     public ResponseEntity<?> updateCurrentUser(@RequestBody User updatedData, Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Bạn chưa đăng nhập!");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Bạn chưa đăng nhập!"));
         }
 
         String currentUsername = authentication.getName();
         User currentUser = userService.findByUsernameOrEmail(currentUsername, "");
 
         if (currentUser == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Không tìm thấy thông tin tài khoản!");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", "Không tìm thấy thông tin tài khoản!"));
         }
 
         updatedData.setUserId(currentUser.getUserId());
@@ -197,35 +236,38 @@ public class UserController {
 
     // 7. TỰ XÓA TÀI KHOẢN (/me)
     @DeleteMapping("/me")
-    public ResponseEntity<String> deleteCurrentUser(Authentication authentication) {
+    public ResponseEntity<?> deleteCurrentUser(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Bạn chưa đăng nhập!");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Bạn chưa đăng nhập!"));
         }
 
         String currentUsername = authentication.getName();
         User currentUser = userService.findByUsernameOrEmail(currentUsername, "");
 
         if (currentUser == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Tài khoản không tồn tại!");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", "Tài khoản không tồn tại!"));
         }
 
         userService.deleteUser(currentUser.getUserId());
-        return ResponseEntity.ok("Xóa tài khoản thành công!");
+        return ResponseEntity.ok(Map.of("message", "Xóa tài khoản thành công!"));
     }
 
     // 8. ADMIN XÓA NGƯỜI KHÁC
     @DeleteMapping("/admin-delete/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public String deleteUserByAdmin(@PathVariable Integer id) {
+    public ResponseEntity<?> deleteUserByAdmin(@PathVariable Integer id) {
         userService.deleteUser(id);
-        return "Admin đã xóa thành công tài khoản có ID: " + id;
+        return ResponseEntity.ok(Map.of("message", "Admin đã xóa thành công tài khoản có ID: " + id));
     }
 
     // 9. TẢI ẢNH ĐẠI DIỆN USER (Sử dụng Relative Path tương thích Render)
     @PostMapping("/me/avatar")
     public ResponseEntity<?> uploadAvatar(@RequestParam("file") MultipartFile file, Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Bạn chưa đăng nhập để đổi ảnh!");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Bạn chưa đăng nhập để đổi ảnh!"));
         }
 
         try {
@@ -233,7 +275,8 @@ public class UserController {
             User currentUser = userService.findByUsernameOrEmail(currentUsername, "");
 
             if (currentUser == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Không tìm thấy tài khoản để cập nhật!");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("message", "Không tìm thấy tài khoản để cập nhật!"));
             }
 
             String uploadDir = "uploads/avatars/";
@@ -246,7 +289,6 @@ public class UserController {
             Path path = Paths.get(uploadDir + fileName);
             Files.write(path, file.getBytes());
 
-            // Đường dẫn tương đối chuẩn cho Render & Production
             String avatarUrl = "/uploads/avatars/" + fileName;
 
             currentUser.setAvatar(avatarUrl);
@@ -256,7 +298,7 @@ public class UserController {
 
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Lỗi tải ảnh đại diện lên máy chủ: " + e.getMessage());
+                    .body(Map.of("message", "Lỗi tải ảnh đại diện lên máy chủ: " + e.getMessage()));
         }
     }
 
@@ -270,7 +312,8 @@ public class UserController {
                 .orElse(null);
 
         if (existingUser == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Không tìm thấy tài khoản cần sửa!");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", "Không tìm thấy tài khoản cần sửa!"));
         }
 
         existingUser.setUsername(updatedData.getUsername());
@@ -285,13 +328,15 @@ public class UserController {
     @GetMapping("/my-orders")
     public ResponseEntity<?> getMyOrders(Principal principal) {
         if (principal == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Bạn chưa đăng nhập!");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Bạn chưa đăng nhập!"));
         }
 
         String username = principal.getName();
         User user = userService.findByUsernameOrEmail(username, "");
         if (user == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Không tìm thấy tài khoản!");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", "Không tìm thấy tài khoản!"));
         }
 
         List<OrderDTO> myOrders = orderService.getOrdersByUserId(user.getUserId());

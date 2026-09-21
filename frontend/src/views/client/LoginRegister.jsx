@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     Box,
@@ -30,87 +30,132 @@ import { RiEyeCloseLine } from "react-icons/ri";
 import axios from "axios";
 
 import logoLotus from "../../assets/logo.jpg";
-import vnFoodsImg from "../../assets/VNFoods.webp";
+
+// Tạo Axios instance dùng chung để tránh hardcode URL nhiều lần
+const api = axios.create({
+    baseURL: "https://honviet-ryt3.onrender.com/api",
+});
 
 function LoginRegister() {
     const [isRegistering, setIsRegistering] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
-    // STATE DÀNH CHO XÁC THỰC OTP
-    const [showOtpModal, setShowOtpModal] = useState(false);
-    const [otpCode, setOtpCode] = useState("");
-    const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
-
-    const navigate = useNavigate();
-    const toast = useToast();
-
+    // State form
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [email, setEmail] = useState("");
     const [phoneNumber, setPhoneNumber] = useState("");
 
-    const handlePasswordVisibility = () => setShowPassword(!showPassword);
+    // State OTP
+    const [showOtpModal, setShowOtpModal] = useState(false);
+    const [otpCode, setOtpCode] = useState("");
+    const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+    const [isResendingOtp, setIsResendingOtp] = useState(false);
+    const [countdown, setCountdown] = useState(0);
+
+    const otpInputRef = useRef(null);
+    const navigate = useNavigate();
+    const toast = useToast();
 
     const omegaGreen = "#930a0a";
     const omegaGrayBg = "#F5F5F5";
-
     const systemFont = '"Comfortaa", "Quicksand", "Segoe UI", sans-serif';
     const bodyFont = '"Quicksand", sans-serif';
+
+    const handlePasswordVisibility = () => setShowPassword(!showPassword);
+
+    // Đếm ngược 60 giây cho nút Gửi lại OTP
+    useEffect(() => {
+        let timer;
+        if (countdown > 0) {
+            timer = setInterval(() => {
+                setCountdown((prev) => prev - 1);
+            }, 1000);
+        }
+        return () => clearInterval(timer);
+    }, [countdown]);
+
+    // Tự động focus vào ô OTP khi bật Modal
+    useEffect(() => {
+        if (showOtpModal) {
+            setTimeout(() => {
+                otpInputRef.current?.focus();
+            }, 150);
+        }
+    }, [showOtpModal]);
+
+    // Hàm Reset sạch Form
+    const resetForm = () => {
+        setUsername("");
+        setPassword("");
+        setEmail("");
+        setPhoneNumber("");
+        setOtpCode("");
+    };
+
+    // Đổi qua lại giữa Đăng ký và Đăng nhập
+    const handleToggleMode = () => {
+        setIsRegistering(!isRegistering);
+        resetForm();
+    };
 
     // 1. XỬ LÝ BẤM NÚT ĐĂNG KÝ / ĐĂNG NHẬP
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsLoading(true);
 
+        // Trim dữ liệu đầu vào
+        const cleanUsername = username.trim();
+        const cleanEmail = email.trim();
+        const cleanPhoneNumber = phoneNumber.trim();
+
         try {
             if (isRegistering) {
-                // ĐĂNG KÝ BƯỚC 1: Gọi API để lưu tài khoản (isVerified = false) và gửi OTP về Mail
-                await axios.post("https://honviet-ryt3.onrender.com/api/users", {
-                    username,
+                // ĐĂNG KÝ: Gọi API lưu thông tin tạm và phát OTP
+                await api.post("/users", {
+                    username: cleanUsername,
                     password,
-                    email,
-                    phoneNumber,
+                    email: cleanEmail,
+                    phoneNumber: cleanPhoneNumber,
                     role: "USER"
                 });
 
                 toast({
                     title: "Mã OTP đã được gửi!",
-                    description: `Vui lòng kiểm tra hộp thư ${email} để lấy mã xác thực 6 số.`,
+                    description: `Vui lòng kiểm tra hộp thư ${cleanEmail} để lấy mã xác thực 6 số.`,
                     status: "info",
                     position: "top",
                     duration: 4000,
                     isClosable: true,
                 });
 
-                // Mở Modal nhập OTP
                 setShowOtpModal(true);
+                setCountdown(60); // Đặt thời gian chờ gửi lại là 60s
             } else {
                 // ĐĂNG NHẬP
-                const response = await axios.post("https://honviet-ryt3.onrender.com/api/users/login", {
-                    usernameOrEmail: username,
+                const response = await api.post("/users/login", {
+                    usernameOrEmail: cleanUsername,
                     password,
                 });
 
                 const token = response.data.accessToken || response.data.token;
                 localStorage.setItem("accessToken", token);
 
-                const userResponse = await axios.get("https://honviet-ryt3.onrender.com/api/users/me", {
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    }
+                const userResponse = await api.get("/users/me", {
+                    headers: { Authorization: `Bearer ${token}` }
                 });
 
                 const userData = userResponse.data;
                 const rawRole = userData.role || "";
                 const cleanRole = rawRole.toString().toUpperCase().trim();
 
-                localStorage.setItem("username", userData.username || username);
+                localStorage.setItem("username", userData.username || cleanUsername);
                 localStorage.setItem("role", cleanRole);
 
                 toast({
                     title: "Đăng nhập thành công!",
-                    description: `Chào mừng ${userData.username || username} đến với Nhà Hàng Hồn Việt!`,
+                    description: `Chào mừng ${userData.username || cleanUsername} đến với Nhà Hàng Hồn Việt!`,
                     status: "success",
                     position: "top",
                     duration: 2000,
@@ -126,7 +171,7 @@ function LoginRegister() {
                 }
             }
         } catch (error) {
-            console.error("Lỗi xác thực hệ thống:", error);
+            console.error("Lỗi hệ thống:", error);
             toast({
                 title: isRegistering ? "Đăng ký thất bại" : "Đăng nhập thất bại",
                 description: error.response?.data?.message || error.response?.data || "Thông tin tài khoản hoặc mật khẩu chưa chính xác!",
@@ -140,13 +185,13 @@ function LoginRegister() {
         }
     };
 
-    // 2. XỬ LÝ BẤM NÚT XÁC NHẬN OTP TRÊN MODAL
-    const handleVerifyOtp = async (e) => {
-        e.preventDefault();
-        if (!otpCode || otpCode.length !== 6) {
+    // 2. XỬ LÝ XÁC NHẬN OTP
+    const handleVerifyOtp = async (codeToVerify = otpCode) => {
+        const cleanOtp = codeToVerify.trim();
+        if (!cleanOtp || cleanOtp.length !== 6) {
             toast({
                 title: "Mã OTP không hợp lệ",
-                description: "Vui lòng nhập đúng 6 chữ số mã OTP!",
+                description: "Vui lòng nhập đủ 6 chữ số mã OTP!",
                 status: "warning",
                 position: "top",
                 duration: 3000,
@@ -157,9 +202,9 @@ function LoginRegister() {
 
         setIsVerifyingOtp(true);
         try {
-            await axios.post("https://honviet-ryt3.onrender.com/api/users/verify-otp", {
-                email: email,
-                otp: otpCode,
+            await api.post("/users/verify-otp", {
+                email: email.trim(),
+                otp: cleanOtp,
             });
 
             toast({
@@ -171,11 +216,9 @@ function LoginRegister() {
                 isClosable: true,
             });
 
-            // Tắt Modal OTP, chuyển về form Đăng nhập
             setShowOtpModal(false);
             setIsRegistering(false);
-            setPassword("");
-            setOtpCode("");
+            resetForm();
         } catch (error) {
             toast({
                 title: "Xác thực thất bại",
@@ -190,9 +233,51 @@ function LoginRegister() {
         }
     };
 
+    // 3. XỬ LÝ GỬI LẠI MÃ OTP (RESEND)
+    const handleResendOtp = async () => {
+        if (countdown > 0) return;
+        setIsResendingOtp(true);
+
+        try {
+            await api.post("/users/resend-otp", {
+                email: email.trim(),
+            });
+
+            toast({
+                title: "Đã gửi lại mã OTP!",
+                description: `Mã OTP mới đã được gửi tới email ${email.trim()}`,
+                status: "success",
+                position: "top",
+                duration: 3000,
+                isClosable: true,
+            });
+            setCountdown(60);
+        } catch (error) {
+            toast({
+                title: "Không thể gửi lại OTP",
+                description: error.response?.data?.message || "Có lỗi xảy ra khi gửi lại mã OTP!",
+                status: "error",
+                position: "top",
+                duration: 3000,
+                isClosable: true,
+            });
+        } finally {
+            setIsResendingOtp(false);
+        }
+    };
+
+    // Tự động trigger Verify khi nhập đủ 6 số OTP
+    const handleOtpInputChange = (e) => {
+        const val = e.target.value.replace(/\D/g, ""); // Chỉ cho nhập số
+        setOtpCode(val);
+        if (val.length === 6) {
+            handleVerifyOtp(val);
+        }
+    };
+
     return (
         <Box bg="white" minH="100vh">
-            <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@700;900&family=Oswald:wght@500;700&family=Quicksand:wght@600;700;900&display=swap" rel="stylesheet" />
+            <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@700;900&family=Quicksand:wght@600;700;900&display=swap" rel="stylesheet" />
 
             <Box bg={omegaGreen} color="white" py="10px" textAlign="center" fontSize="13px" fontWeight="bold" letterSpacing="1.5px" fontFamily={bodyFont}>
                 HỒN VIỆT — MỸ VỊ CHÍNH THỐNG ĐẬM ĐÀ QUÊ HƯƠNG
@@ -253,7 +338,7 @@ function LoginRegister() {
                             focusBorderColor={omegaGreen}
                             fontSize="13px"
                             type="text"
-                            placeholder="Nhập tên tài khoản của bạn..."
+                            placeholder="Nhập tên tài khoản..."
                             mb="18px"
                             fontWeight="700"
                             size="lg"
@@ -295,7 +380,7 @@ function LoginRegister() {
                                     focusBorderColor={omegaGreen}
                                     fontSize="13px"
                                     type="tel"
-                                    placeholder="Nhập số điện thoại nhận hàng..."
+                                    placeholder="Nhập số điện thoại..."
                                     mb="18px"
                                     fontWeight="700"
                                     size="lg"
@@ -364,13 +449,7 @@ function LoginRegister() {
                                 ms="6px"
                                 fontWeight="800"
                                 _hover={{ cursor: "pointer", textDecoration: "underline" }}
-                                onClick={() => {
-                                    setIsRegistering(!isRegistering);
-                                    setUsername("");
-                                    setPassword("");
-                                    setEmail("");
-                                    setPhoneNumber("");
-                                }}
+                                onClick={handleToggleMode}
                             >
                                 {isRegistering ? "Quay lại Đăng nhập" : "Đăng ký tại đây"}
                             </Text>
@@ -379,7 +458,7 @@ function LoginRegister() {
                 </Box>
             </Center>
 
-            {/* MODAL BẬT LÊN ĐỂ NHẬP MÃ OTP */}
+            {/* MODAL NHẬP MÃ OTP */}
             <Modal isOpen={showOtpModal} onClose={() => setShowOtpModal(false)} isCentered closeOnOverlayClick={false}>
                 <ModalOverlay bg="blackAlpha.600" backdropFilter="blur(2px)" />
                 <ModalContent borderRadius="12px" p="10px">
@@ -395,8 +474,9 @@ function LoginRegister() {
                             {email}
                         </Text>
 
-                        <FormControl as="form" onSubmit={handleVerifyOtp}>
+                        <FormControl as="form" onSubmit={(e) => { e.preventDefault(); handleVerifyOtp(); }}>
                             <Input
+                                ref={otpInputRef}
                                 isRequired
                                 maxLength={6}
                                 placeholder="000000"
@@ -409,11 +489,25 @@ function LoginRegister() {
                                 mb="10px"
                                 fontFamily={bodyFont}
                                 value={otpCode}
-                                onChange={(e) => setOtpCode(e.target.value)}
+                                onChange={handleOtpInputChange}
                             />
-                            <Text fontSize="11px" color="gray.400" fontWeight="600" fontFamily={bodyFont} mb="20px">
-                                Mã có hiệu lực trong vòng 5 phút
-                            </Text>
+
+                            <Flex justify="space-between" align="center" mb="20px" px="5px">
+                                <Text fontSize="11px" color="gray.400" fontWeight="600" fontFamily={bodyFont}>
+                                    Mã có hiệu lực trong 5 phút
+                                </Text>
+                                <Button
+                                    variant="link"
+                                    size="xs"
+                                    color={countdown > 0 ? "gray.400" : omegaGreen}
+                                    fontWeight="700"
+                                    onClick={handleResendOtp}
+                                    isDisabled={countdown > 0 || isResendingOtp}
+                                    isLoading={isResendingOtp}
+                                >
+                                    {countdown > 0 ? `Gửi lại sau (${countdown}s)` : "Gửi lại mã OTP"}
+                                </Button>
+                            </Flex>
 
                             <Button
                                 bg={omegaGreen}
@@ -433,7 +527,7 @@ function LoginRegister() {
                     </ModalBody>
                     <ModalFooter justifyContent="center">
                         <Button variant="ghost" size="sm" onClick={() => setShowOtpModal(false)} color="gray.500" fontSize="12px" fontFamily={bodyFont}>
-                            Hủy bỏ / Đăng ký lại
+                            Hủy bỏ / Thay đổi email
                         </Button>
                     </ModalFooter>
                 </ModalContent>
