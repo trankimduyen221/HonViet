@@ -5,6 +5,7 @@ import jakarta.mail.internet.MimeMessage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -13,6 +14,7 @@ public class EmailServiceImpl implements EmailService {
     @Autowired
     private JavaMailSender mailSender;
 
+    @Async // 1. Bắt buộc thêm annotation này để gửi mail chạy ngầm (bất đồng bộ)
     @Override
     public void sendOtpEmail(String toEmail, String otpCode) {
         try {
@@ -34,8 +36,10 @@ public class EmailServiceImpl implements EmailService {
 
             helper.setText(htmlContent, true);
             mailSender.send(message);
+            System.out.println(">>> [EmailService] Gửi email OTP thành công tới: " + toEmail);
         } catch (Exception e) {
-            throw new RuntimeException("Không thể gửi email. Vui lòng kiểm tra địa chỉ email!", e);
+            // 2. Bỏ throw RuntimeException! Chỉ in log ra console để không làm gián đoạn API
+            System.err.println(">>> [EmailService] Lỗi khi gửi email OTP tới " + toEmail + ": " + e.getMessage());
         }
     }
 }

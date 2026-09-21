@@ -116,16 +116,15 @@ public class UserController {
             user.setOtpCode(otp);
             user.setOtpExpiryTime(LocalDateTime.now().plusMinutes(5));
 
-            // Thử gửi Email trước, nếu lỗi sẽ nhảy vào catch
+            // Lưu thông tin vào RAM trước
+            pendingUsers.put(user.getEmail(), user);
+
+            // Gửi Email OTP chạy ngầm (Async)
             try {
                 emailService.sendOtpEmail(user.getEmail(), otp);
             } catch (Exception e) {
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body(Map.of("message", "Không thể gửi email OTP. Vui lòng kiểm tra lại địa chỉ email!"));
+                System.err.println(">>> Lỗi khi gửi Email OTP: " + e.getMessage());
             }
-
-            // Lưu tạm vào RAM sau khi đã kích hoạt gửi mail thành công
-            pendingUsers.put(user.getEmail(), user);
 
             return ResponseEntity.ok(Map.of(
                     "message", "Mã OTP đã được gửi tới email của bạn. Vui lòng xác thực để hoàn tất đăng ký!",
@@ -171,7 +170,6 @@ public class UserController {
         pendingUser.setOtpCode(null);
         pendingUser.setOtpExpiryTime(null);
 
-        // Mã hóa mật khẩu trước khi lưu nếu chưa mã hóa
         if (pendingUser.getPassword() != null && !pendingUser.getPassword().startsWith("$2a$")) {
             pendingUser.setPassword(passwordEncoder.encode(pendingUser.getPassword()));
         }
@@ -180,6 +178,40 @@ public class UserController {
         pendingUsers.remove(email);       // Xóa thông tin tạm
 
         return ResponseEntity.ok(Map.of("message", "Xác thực tài khoản thành công! Bạn có thể đăng nhập ngay bây giờ."));
+    }
+
+    // 3.1. GỬI LẠI MÃ OTP (/resend-otp)
+    @PostMapping("/resend-otp")
+    public ResponseEntity<?> resendOtp(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+
+        if (email == null || email.trim().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "Vui lòng cung cấp địa chỉ email!"));
+        }
+
+        User pendingUser = pendingUsers.get(email);
+
+        if (pendingUser == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", "Thông tin đăng ký đã hết hạn. Vui lòng thực hiện đăng ký lại!"));
+        }
+
+        // Tạo mã OTP mới và cập nhật thời gian hết hạn 5 phút
+        String newOtp = String.format("%06d", new Random().nextInt(999999));
+        pendingUser.setOtpCode(newOtp);
+        pendingUser.setOtpExpiryTime(LocalDateTime.now().plusMinutes(5));
+
+        pendingUsers.put(email, pendingUser);
+
+        // Gửi email bất đồng bộ
+        try {
+            emailService.sendOtpEmail(email, newOtp);
+        } catch (Exception e) {
+            System.err.println(">>> Lỗi gửi lại OTP: " + e.getMessage());
+        }
+
+        return ResponseEntity.ok(Map.of("message", "Mã OTP mới đã được gửi tới email của bạn!"));
     }
 
     // 4. XEM DANH SÁCH (CHỈ ADMIN)
