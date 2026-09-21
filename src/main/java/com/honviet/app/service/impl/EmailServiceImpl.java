@@ -1,28 +1,31 @@
 package com.honviet.app.service.impl;
 
 import com.honviet.app.service.EmailService;
-import jakarta.mail.internet.MimeMessage;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.*;
 
 @Service
 public class EmailServiceImpl implements EmailService {
 
-    @Autowired
-    private JavaMailSender mailSender;
+    @Value("${RESEND_API_KEY}")
+    private String resendApiKey;
 
-    @Async // 1. Bắt buộc thêm annotation này để gửi mail chạy ngầm (bất đồng bộ)
+    private final RestTemplate restTemplate = new RestTemplate();
+
+    @Async
     @Override
     public void sendOtpEmail(String toEmail, String otpCode) {
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            String url = "https://api.resend.com/emails";
 
-            helper.setTo(toEmail);
-            helper.setSubject("Mã xác thực đăng ký tài khoản - Hồn Việt Foods");
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(resendApiKey);
 
             String htmlContent = "<div style='font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; max-width: 500px;'>"
                     + "<h2 style='color: #930a0a; text-align: center;'>HỒN VIỆT FOODS</h2>"
@@ -31,15 +34,25 @@ public class EmailServiceImpl implements EmailService {
                     + "<div style='text-align: center; margin: 20px 0;'>"
                     + "<span style='font-size: 28px; font-weight: bold; color: #930a0a; letter-spacing: 5px; background: #f8f9fa; padding: 10px 20px; border-radius: 6px; border: 1px dashed #930a0a;'>" + otpCode + "</span>"
                     + "</div>"
-                    + "<p>Mã có hiệu lực trong <b>5 phút</b>. Nếu bạn không thực hiện đăng ký, vui lòng bỏ qua email này.</p>"
+                    + "<p>Mã có hiệu lực trong <b>5 phút</b>.</p>"
                     + "</div>";
 
-            helper.setText(htmlContent, true);
-            mailSender.send(message);
-            System.out.println(">>> [EmailService] Gửi email OTP thành công tới: " + toEmail);
+            Map<String, Object> body = new HashMap<>();
+            body.put("from", "HonViet <onboarding@resend.dev>");
+            body.put("to", List.of(toEmail));
+            body.put("subject", "Mã xác thực đăng ký tài khoản - Hồn Việt Foods");
+            body.put("html", htmlContent);
+
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
+            ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
+
+            if (response.getStatusCode().is2xxSuccessful()) {
+                System.out.println(">>> [EmailService] Gửi email OTP thành công tới: " + toEmail);
+            } else {
+                System.err.println(">>> [EmailService] Lỗi gửi mail: " + response.getBody());
+            }
         } catch (Exception e) {
-            // 2. Bỏ throw RuntimeException! Chỉ in log ra console để không làm gián đoạn API
-            System.err.println(">>> [EmailService] Lỗi khi gửi email OTP tới " + toEmail + ": " + e.getMessage());
+            System.err.println(">>> [EmailService] Lỗi kết nối API Resend: " + e.getMessage());
         }
     }
 }
