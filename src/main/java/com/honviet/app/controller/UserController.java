@@ -82,7 +82,7 @@ public class UserController {
         }
     }
 
-    // 2. ĐĂNG KÝ BƯỚC 1: Kiểm tra thông tin & gửi OTP (CHƯA LƯU VÀO DATABASE)
+    // 2. ĐĂNG KÝ BƯỚC 1: Kiểm tra thông tin & gửi OTP (Bất đồng bộ - Tương thích @Async)
     @PostMapping
     public ResponseEntity<?> createUser(@RequestBody User user) {
         if (userService.findByUsernameOrEmail(user.getUsername(), "") != null) {
@@ -102,21 +102,16 @@ public class UserController {
         user.setOtpCode(otp);
         user.setOtpExpiryTime(LocalDateTime.now().plusMinutes(5));
 
-        try {
-            // Gửi OTP tới email người dùng nhập
-            emailService.sendOtpEmail(user.getEmail(), otp);
+        // Lưu tạm vào bộ nhớ RAM trước
+        pendingUsers.put(user.getEmail(), user);
 
-            // Lưu tạm vào bộ nhớ RAM (Chưa lưu Database)
-            pendingUsers.put(user.getEmail(), user);
+        // Kích hoạt gửi mail chạy ngầm qua @Async (không bắt Frontend chờ)
+        emailService.sendOtpEmail(user.getEmail(), otp);
 
-            return ResponseEntity.ok(Map.of(
-                    "message", "Mã OTP đã được gửi tới email của bạn. Vui lòng xác thực để hoàn tất đăng ký!",
-                    "email", user.getEmail()
-            ));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("Không thể gửi email xác thực. Vui lòng kiểm tra địa chỉ Email!");
-        }
+        return ResponseEntity.ok(Map.of(
+                "message", "Mã OTP đã được gửi tới email của bạn. Vui lòng xác thực để hoàn tất đăng ký!",
+                "email", user.getEmail()
+        ));
     }
 
     // 3. ĐĂNG KÝ BƯỚC 2: Xác thực mã OTP -> LÚC NÀY MỚI LƯU CHÍNH THỨC VÀO DATABASE
@@ -146,7 +141,7 @@ public class UserController {
         pendingUser.setOtpCode(null);
         pendingUser.setOtpExpiryTime(null);
 
-        userService.saveUser(pendingUser); // Lưu vào MySQL
+        userService.saveUser(pendingUser); // Lưu vào TiDB Cloud
         pendingUsers.remove(email);       // Xóa thông tin tạm
 
         return ResponseEntity.ok("Xác thực tài khoản thành công! Bạn có thể đăng nhập ngay bây giờ.");
@@ -226,7 +221,7 @@ public class UserController {
         return "Admin đã xóa thành công tài khoản có ID: " + id;
     }
 
-    // 9. TẢI ẢNH ĐẠI DIỆN USER
+    // 9. TẢI ẢNH ĐẠI DIỆN USER (Sử dụng Relative Path tương thích Render)
     @PostMapping("/me/avatar")
     public ResponseEntity<?> uploadAvatar(@RequestParam("file") MultipartFile file, Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
@@ -251,7 +246,8 @@ public class UserController {
             Path path = Paths.get(uploadDir + fileName);
             Files.write(path, file.getBytes());
 
-            String avatarUrl = "http://localhost:8080/uploads/avatars/" + fileName;
+            // Đường dẫn tương đối chuẩn cho Render & Production
+            String avatarUrl = "/uploads/avatars/" + fileName;
 
             currentUser.setAvatar(avatarUrl);
             User updatedUser = userService.saveUser(currentUser);

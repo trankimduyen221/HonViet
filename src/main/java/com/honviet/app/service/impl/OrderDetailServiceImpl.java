@@ -10,6 +10,7 @@ import com.honviet.app.repository.OrderDetailRepository;
 import com.honviet.app.service.OrderDetailService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -58,6 +59,7 @@ public class OrderDetailServiceImpl implements OrderDetailService {
 
     // ==================== LOGIC TỰ ĐỘNG TÍNH TIỀN KHI THÊM MÓN LẺ ====================
     @Override
+    @Transactional
     public OrderDetailDTO createOrderDetail(OrderDetail orderDetail) {
         Order order = orderRepository.findById(orderDetail.getOrder().getOrderId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng tương ứng!"));
@@ -90,6 +92,7 @@ public class OrderDetailServiceImpl implements OrderDetailService {
 
     // ==================== LOGIC TỰ ĐỘNG TÍNH TIỀN KHI CẬP NHẬT SỐ LƯỢNG MÓN LẺ ====================
     @Override
+    @Transactional
     public OrderDetailDTO updateOrderDetail(Integer id, OrderDetail newDetails) {
         OrderDetail oldDetail = orderDetailRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy chi tiết đơn hàng số: " + id));
@@ -123,8 +126,28 @@ public class OrderDetailServiceImpl implements OrderDetailService {
         return convertToDto(updatedDetail);
     }
 
+    // ==================== LOGIC TỰ ĐỘNG CẬP NHẬT TIỀN KHI XÓA MÓN LẺ ====================
     @Override
+    @Transactional
     public void deleteOrderDetail(Integer id) {
-        orderDetailRepository.deleteById(id);
+        OrderDetail detail = orderDetailRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy chi tiết đơn hàng số: " + id));
+
+        Order order = detail.getOrder();
+        if (order != null) {
+            String currentStatus = order.getStatus() != null ? order.getStatus() : "Pending";
+
+            // CHẶN BẢO VỆ: Đơn hàng đã chốt thì không cho phép xóa món
+            if ("Success".equalsIgnoreCase(currentStatus) || "Sucess".equalsIgnoreCase(currentStatus) || "Canceled".equalsIgnoreCase(currentStatus)) {
+                throw new RuntimeException("Đơn hàng đã hoàn tất hoặc bị hủy, không thể xóa món!");
+            }
+
+            // Trừ bớt giá tiền của món bị xóa khỏi tổng tiền đơn hàng
+            double newTotalPrice = Math.max(0, order.getTotalPrice() - detail.getPrice());
+            order.setTotalPrice(newTotalPrice);
+            orderRepository.save(order);
+        }
+
+        orderDetailRepository.delete(detail);
     }
 }
