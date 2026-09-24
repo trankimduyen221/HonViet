@@ -15,7 +15,7 @@ public class WebConfig implements WebMvcConfigurer {
     public void addCorsMappings(CorsRegistry registry) {
         // Cấu hình CORS toàn cục cho tất cả endpoint
         registry.addMapping("/**")
-                .allowedOriginPatterns("*") // Mở rộng pattern cho tất cả origin, hoàn toàn tương thích với allowCredentials(true)
+                .allowedOriginPatterns("*") // Cho phép tất cả Origin, tương thích tốt với allowCredentials(true)
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD")
                 .allowedHeaders("*")
                 .allowCredentials(true); // Cho phép gửi kèm Cookie / Token xác thực
@@ -23,12 +23,12 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // Lấy đường dẫn tuyệt đối tới thư mục "uploads" ở gốc project
+        // Lấy URI chuẩn tuyệt đối của thư mục "uploads" (Chạy tốt trên cả Windows và Linux/Render)
         Path uploadDir = Paths.get("uploads");
-        String uploadPath = uploadDir.toFile().getAbsolutePath();
+        String uploadPath = uploadDir.toUri().toString();
 
-        // Biến /uploads/** thành cổng tĩnh public
+        // Biến /uploads/** thành tài nguyên tĩnh truy cập công khai
         registry.addResourceHandler("/uploads/**")
-                .addResourceLocations("file:/" + uploadPath + "/");
+                .addResourceLocations(uploadPath);
     }
 }

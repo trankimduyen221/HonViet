@@ -25,34 +25,34 @@ public class OrderController {
     @Autowired
     private UserService userService;
 
-    // 1. LẤY HẾT ĐƠN HÀNG (CHỈ ADMIN) - Đổ lên bảng Quản lý Đơn hàng của Horizon UI
-    // URL: GET http://localhost:8080/api/orders
+    // 1. LẤY HẾT ĐƠN HÀNG (CHỈ ADMIN)
     @GetMapping
     @PreAuthorize("hasAnyAuthority('ADMIN', 'ROLE_ADMIN')")
     public List<OrderDTO> getAllOrders() {
         return orderService.getAllOrders();
     }
 
-    // 2. TÌM ĐƠN HÀNG THEO ID - Xem chi tiết đơn
-    // URL: GET http://localhost:8080/api/orders/1
+    // 2. TÌM ĐƠN HÀNG THEO ID
     @GetMapping("/{id}")
     public OrderDTO getOrderById(@PathVariable Integer id) {
         return orderService.getOrderById(id);
     }
 
-    // 3. THÊM MỚI ĐƠN HÀNG (Khách hàng tạo đơn khi bấm Thanh Toán)
-    // URL: POST http://localhost:8080/api/orders
+    // 3. THÊM MỚI ĐƠN HÀNG
     @PostMapping
     public ResponseEntity<?> createOrder(@RequestBody Order order, Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Người dùng chưa xác thực!");
+        }
         try {
-            // Lấy thông tin User hiện tại từ Token
             String currentUsername = authentication.getName();
-            User currentUser = userService.findByUsernameOrEmail(currentUsername, "");
+            User currentUser = userService.findByUsernameOrEmail(currentUsername, currentUsername);
 
-            // Gán User vào đơn hàng một cách tự động và an toàn
+            if (currentUser == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Không tìm thấy tài khoản người dùng!");
+            }
+
             order.setUser(currentUser);
-
-            // Lưu đơn hàng
             OrderDTO createdOrder = orderService.saveOrder(order);
 
             return ResponseEntity.ok(createdOrder);
@@ -63,12 +63,19 @@ public class OrderController {
     }
 
     // 4. LẤY LỊCH SỬ ĐƠN HÀNG CỦA KHÁCH HÀNG DỰA TRÊN TOKEN
-    // URL: GET http://localhost:8080/api/orders/my-orders
     @GetMapping("/my-orders")
     public ResponseEntity<?> getMyOrders(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Người dùng chưa xác thực!");
+        }
         try {
             String currentUsername = authentication.getName();
-            User currentUser = userService.findByUsernameOrEmail(currentUsername, "");
+            User currentUser = userService.findByUsernameOrEmail(currentUsername, currentUsername);
+
+            if (currentUser == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Không tìm thấy tài khoản người dùng!");
+            }
+
             List<OrderDTO> userOrders = orderService.getOrdersByUserId(currentUser.getUserId());
             return ResponseEntity.ok(userOrders);
         } catch (Exception e) {
@@ -80,7 +87,6 @@ public class OrderController {
     // ==================== PHẦN CẬP NHẬT TỰ ĐỘNG & BẢO MẬT PHÂN QUYỀN ====================
 
     // 5a. ADMIN: Cập nhật trạng thái đơn hàng
-    // URL: PUT http://localhost:8080/api/orders/1/status?status=Delivering
     @PutMapping("/{id}/status")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'ROLE_ADMIN')")
     public ResponseEntity<String> updateOrderStatus(@PathVariable Integer id, @RequestParam String status) {
@@ -93,7 +99,6 @@ public class OrderController {
     }
 
     // 5b. ADMIN: Gán shipper chịu trách nhiệm đi giao đơn
-    // URL: PUT http://localhost:8080/api/orders/1/assign-shipper
     @PutMapping("/{id}/assign-shipper")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'ROLE_ADMIN')")
     public ResponseEntity<String> assignShipper(@PathVariable Integer id, @RequestBody User shipper) {
@@ -105,19 +110,21 @@ public class OrderController {
         }
     }
 
-    // 5c. USER: Tự cập nhật địa chỉ/sđt nhận hàng (Chỉ được sửa đơn của chính mình)
-    // URL: PUT http://localhost:8080/api/orders/1/shipping-info
+    // 5c. USER: Tự cập nhật địa chỉ/sđt nhận hàng
     @PutMapping("/{id}/shipping-info")
     public ResponseEntity<String> updateShippingInfo(@PathVariable Integer id, @RequestBody Order order, Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Người dùng chưa xác thực!");
+        }
         try {
             String currentUsername = authentication.getName();
-            User currentUser = userService.findByUsernameOrEmail(currentUsername, "");
+            User currentUser = userService.findByUsernameOrEmail(currentUsername, currentUsername);
             OrderDTO currentOrder = orderService.getOrderById(id);
 
             boolean isAdmin = authentication.getAuthorities().stream()
                     .anyMatch(r -> r.getAuthority().equals("ADMIN") || r.getAuthority().equals("ROLE_ADMIN"));
 
-            if (!isAdmin && !currentOrder.getUser().getUserId().equals(currentUser.getUserId())) {
+            if (!isAdmin && (currentOrder.getUser() == null || !currentOrder.getUser().getUserId().equals(currentUser.getUserId()))) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Bạn không có quyền chỉnh sửa đơn hàng của người khác!");
             }
 
@@ -128,13 +135,15 @@ public class OrderController {
         }
     }
 
-    // 6. TỰ ĐỘNG HỦY ĐƠN HÀNG (Có giới hạn 10 phút cho USER thường)
-    // URL: PUT http://localhost:8080/api/orders/1/cancel
+    // 6. TỰ ĐỘNG HỦY ĐƠN HÀNG
     @PutMapping("/{id}/cancel")
     public ResponseEntity<String> cancelOrder(@PathVariable Integer id, Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Người dùng chưa xác thực!");
+        }
         try {
             String currentUsername = authentication.getName();
-            User currentUser = userService.findByUsernameOrEmail(currentUsername, "");
+            User currentUser = userService.findByUsernameOrEmail(currentUsername, currentUsername);
             OrderDTO currentOrder = orderService.getOrderById(id);
 
             boolean isAdmin = authentication.getAuthorities().stream()
@@ -142,7 +151,7 @@ public class OrderController {
             String roleCalculated = isAdmin ? "ADMIN" : "USER";
 
             if (!isAdmin) {
-                if (!currentOrder.getUser().getUserId().equals(currentUser.getUserId())) {
+                if (currentOrder.getUser() == null || !currentOrder.getUser().getUserId().equals(currentUser.getUserId())) {
                     return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Bạn không thể hủy đơn hàng của người khác!");
                 }
 
@@ -161,7 +170,6 @@ public class OrderController {
     // ==================== PHẦN DÀNH RIÊNG CHO SHIPPER ====================
 
     // 7. SHIPPER: Lấy danh sách các đơn hàng chờ nhận giao (Pending)
-    // URL: GET http://localhost:8080/api/orders/available-for-shipper
     @GetMapping("/available-for-shipper")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'ROLE_ADMIN', 'SHIPPER', 'ROLE_SHIPPER')")
     public ResponseEntity<?> getAvailableOrdersForShipper() {
@@ -175,13 +183,15 @@ public class OrderController {
     }
 
     // 8. SHIPPER: Lấy danh sách các đơn do chính Shipper đăng nhập hiện tại đảm nhận
-    // URL: GET http://localhost:8080/api/orders/my-delivering-orders
     @GetMapping("/my-delivering-orders")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'ROLE_ADMIN', 'SHIPPER', 'ROLE_SHIPPER')")
     public ResponseEntity<?> getMyDeliveringOrders(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Người dùng chưa xác thực!");
+        }
         try {
             String currentUsername = authentication.getName();
-            User currentShipper = userService.findByUsernameOrEmail(currentUsername, "");
+            User currentShipper = userService.findByUsernameOrEmail(currentUsername, currentUsername);
             List<OrderDTO> myOrders = orderService.getOrdersByShipperId(currentShipper.getUserId());
             return ResponseEntity.ok(myOrders);
         } catch (Exception e) {
@@ -190,8 +200,7 @@ public class OrderController {
         }
     }
 
-    // 9. LẤY TOÀN BỘ ĐƠN HÀNG ĐANG GIAO (Chỉ Shipper và Admin mới được xem)
-    // URL: GET http://localhost:8080/api/orders/all-shipping
+    // 9. LẤY TOÀN BỘ ĐƠN HÀNG ĐANG GIAO
     @GetMapping("/all-shipping")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'ROLE_ADMIN', 'SHIPPER', 'ROLE_SHIPPER')")
     public ResponseEntity<?> getAllShippingOrders() {
@@ -204,30 +213,29 @@ public class OrderController {
         }
     }
 
-    // 10. SHIPPER: Nhận giao đơn hàng hoặc Cập nhật trạng thái (Success / Canceled)
-    // URL: PUT http://localhost:8080/api/orders/1/shipper-status?status=Delivering
+    // 10. SHIPPER: Nhận giao đơn hàng hoặc Cập nhật trạng thái
     @PutMapping("/{id}/shipper-status")
     @PreAuthorize("hasAnyAuthority('ADMIN', 'ROLE_ADMIN', 'SHIPPER', 'ROLE_SHIPPER')")
     public ResponseEntity<String> shipperUpdateStatus(
             @PathVariable Integer id,
             @RequestParam String status,
             Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Người dùng chưa xác thực!");
+        }
         try {
             String currentUsername = authentication.getName();
-            User currentShipper = userService.findByUsernameOrEmail(currentUsername, "");
+            User currentShipper = userService.findByUsernameOrEmail(currentUsername, currentUsername);
 
-            // Nếu Shipper bấm "Nhận đơn", gán Shipper vào đơn và chuyển trạng thái sang Delivering
             if ("Delivering".equalsIgnoreCase(status)) {
                 orderService.assignShipper(id, currentShipper);
                 return ResponseEntity.ok("Shipper đã nhận giao đơn hàng số " + id + " thành công!");
             }
 
-            // Đồng bộ trạng thái: Chấp nhận "Success" (Đã giao xong) và "Canceled" (Khách không lấy)
             if (!"Success".equalsIgnoreCase(status) && !"Canceled".equalsIgnoreCase(status)) {
                 return ResponseEntity.badRequest().body("Trạng thái shipper cập nhật không hợp lệ! Chỉ chấp nhận [Delivering], [Success] hoặc [Canceled]");
             }
 
-            // Gọi xuống Service để cập nhật trạng thái
             orderService.shipperUpdateStatus(id, status);
             return ResponseEntity.ok("Cập nhật trạng thái đơn số " + id + " thành [" + status + "] thành công!");
         } catch (RuntimeException e) {
