@@ -23,8 +23,7 @@ import {
     MenuList,
     MenuItem,
     Avatar,
-    MenuDivider,
-    Collapse
+    MenuDivider
 } from '@chakra-ui/react';
 import {
     createColumnHelper,
@@ -39,7 +38,6 @@ import { useNavigate } from "react-router-dom";
 import { MdCancel, MdCheckCircle, MdOutlineError, MdRefresh, MdKeyboardArrowDown, MdKeyboardArrowUp } from 'react-icons/md';
 import { FiTruck } from 'react-icons/fi';
 
-// Import chính xác các tài nguyên hình ảnh đồng bộ
 import logoLotus from "../../assets/logo.jpg";
 
 const columnHelper = createColumnHelper();
@@ -56,18 +54,24 @@ export default function OrdersTable() {
     // Link ảnh mặc định chống vỡ ảnh sản phẩm trong đơn hàng
     const DEFAULT_FOOD_IMAGE = 'https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?q=80&w=800';
 
-    // Hệ màu sắc nhận diện thương hiệu phẳng Hòn Việt
     const omegaGreen = '#930a0a';
     const omegaGrayBg = '#F5F5F5';
     const token = localStorage.getItem('accessToken');
     const currentUsername = localStorage.getItem('username') || 'Admin';
 
-    // Đóng/Mở xem chi tiết danh sách món ăn trong đơn
+    // Hàm chuẩn hóa đường dẫn ảnh từ Backend gửi về
+    const formatImageUrl = (url) => {
+        if (!url || typeof url !== 'string' || url.trim() === '') return DEFAULT_FOOD_IMAGE;
+        if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:') || url.startsWith('data:')) {
+            return url;
+        }
+        return `https://honviet-ryt3.onrender.com${url.startsWith('/') ? '' : '/'}${url}`;
+    };
+
     const toggleRow = (id) => {
         setExpandedRows(prev => ({ ...prev, [id]: !prev[id] }));
     };
 
-    // XỬ LÝ ĐĂNG XUẤT HỆ THỐNG ĐỒNG BỘ
     const handleLogout = () => {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('username');
@@ -82,7 +86,6 @@ export default function OrdersTable() {
         navigate("/login");
     };
 
-    // 1. GỌI API LẤY DANH SÁCH ĐƠN HÀNG
     const fetchOrders = async () => {
         try {
             setLoading(true);
@@ -104,7 +107,6 @@ export default function OrdersTable() {
         fetchOrders();
     }, []);
 
-    // 2. CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG
     const handleStatusChange = async (orderId, newStatus) => {
         if (!orderId) {
             toast({
@@ -304,7 +306,6 @@ export default function OrdersTable() {
         <Box bg="white" minH="100vh">
             <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@700;900&family=Oswald:wght@500;700&family=Quicksand:wght@700&display=swap" rel="stylesheet" />
 
-            {/* ===================== HEADER ADMIN ===================== */}
             <Box bg={omegaGreen} color="white" py="10px" textAlign="center" fontSize="13px" fontWeight="bold" letterSpacing="1.5px">
                 HỒN VIỆT — MỸ VỊ CHÍNH THỐNG ĐẬM ĐÀ QUÊ HƯƠNG (DASHBOARD)
             </Box>
@@ -323,7 +324,6 @@ export default function OrdersTable() {
                         </Box>
                     </HStack>
 
-                    {/* Menu Chuyển nhanh giữa các trang quản trị của Admin */}
                     <HStack spacing="15px" fontSize="12px" fontWeight="800">
                         <Text cursor="pointer" color="gray.500" _hover={{ color: omegaGreen }} onClick={() => navigate("/admin/foods")}>MÓN ĂN</Text>
                         <Text cursor="pointer" color="gray.500" _hover={{ color: omegaGreen }} onClick={() => navigate("/admin/categories")}>DANH MỤC</Text>
@@ -331,7 +331,6 @@ export default function OrdersTable() {
                         <Text cursor="pointer" color="gray.500" _hover={{ color: omegaGreen }} onClick={() => navigate("/admin/users")}>THÀNH VIÊN</Text>
                     </HStack>
 
-                    {/* ĐỒNG BỘ HIỂN THỊ TÀI KHOẢN KÈM MENU ĐĂNG XUẤT */}
                     <HStack spacing="15px">
                         <Menu isLazy placement="bottom-end">
                             <MenuButton cursor="pointer" _hover={{ opacity: 0.85 }}>
@@ -339,13 +338,7 @@ export default function OrdersTable() {
                                     <Text fontSize="12px" fontWeight="800" color="gray.700" display={{ base: 'none', md: 'block' }}>
                                         {currentUsername}
                                     </Text>
-                                    <Avatar
-                                        name={currentUsername}
-                                        size="sm"
-                                        bg={omegaGreen}
-                                        color="white"
-                                        fontWeight="bold"
-                                    />
+                                    <Avatar name={currentUsername} size="sm" bg={omegaGreen} color="white" fontWeight="bold" />
                                 </HStack>
                             </MenuButton>
 
@@ -364,7 +357,6 @@ export default function OrdersTable() {
                 </Flex>
             </Box>
 
-            {/* BREADCRUMB */}
             <Box bg={omegaGrayBg} py="10px" px={{ base: '15px', md: '30px' }}>
                 <HStack maxW="1600px" mx="auto" fontSize="12px" color="gray.500" fontWeight="600">
                     <Text cursor="pointer" onClick={() => navigate("/client/food-menu")}>Trang chủ</Text>
@@ -373,7 +365,6 @@ export default function OrdersTable() {
                 </HStack>
             </Box>
 
-            {/* BẢNG NỘI DUNG CHÍNH */}
             <Box p={{ base: '20px 15px', md: '40px 30px' }} maxW="1600px" mx="auto">
                 <Box bg="white" border="1px solid #EAEAEA" p="24px" borderRadius="0px">
                     <Flex mb="20px" pb="10px" borderBottom="2px solid #EAEAEA" justifyContent="space-between" align="center">
@@ -440,7 +431,7 @@ export default function OrdersTable() {
                                                     ))}
                                                 </Tr>
 
-                                                {/* DÒNG HIỂN THỊ CHI TIẾT CÁC MÓN ĂN TRONG ĐƠN */}
+                                                {/* CHI TIẾT ĐƠN HÀNG DÙNG FORMAT IMAGE URL CHUẨN */}
                                                 {isExpanded && (
                                                     <Tr bg="gray.50">
                                                         <Td colSpan="7" p="15px" borderColor="#EAEAEA">
@@ -452,13 +443,13 @@ export default function OrdersTable() {
                                                                 {orderObj.orderDetails && orderObj.orderDetails.length > 0 ? (
                                                                     <VStack align="stretch" spacing="10px">
                                                                         {orderObj.orderDetails.map((detail, idx) => {
-                                                                            const foodImg = detail.food?.imageUrl || detail.imageUrl || DEFAULT_FOOD_IMAGE;
+                                                                            const rawImg = detail.food?.imageUrl || detail.imageUrl || detail.image;
+                                                                            const foodImg = formatImageUrl(rawImg);
                                                                             const foodName = detail.foodName || detail.food?.foodName || 'Món ăn';
 
                                                                             return (
                                                                                 <Flex key={idx} justify="space-between" align="center" fontSize="12px" borderBottom="1px solid #F5F5F5" pb="8px">
                                                                                     <HStack spacing="12px">
-                                                                                        {/* CẬP NHẬT: Thêm Image với fallbackSrc & onError chống vỡ hình */}
                                                                                         <Image
                                                                                             src={foodImg}
                                                                                             fallbackSrc={DEFAULT_FOOD_IMAGE}
@@ -506,7 +497,6 @@ export default function OrdersTable() {
                 </Box>
             </Box>
 
-            {/* FOOTER */}
             <Box bg="white" borderTop="1px solid #EAEAEA" py="20px" textAlign="center" fontSize="11px" color="gray.400" fontWeight="bold">
                 Copyright © 2026 honvietfoods. Powered by Yuri Project (Hệ thống quản trị nội bộ)
             </Box>

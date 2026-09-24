@@ -31,7 +31,6 @@ import {
 } from '@chakra-ui/react';
 import axios from 'axios';
 
-// Import tài nguyên hình ảnh đồng bộ
 import logoLotus from '../../assets/logo.jpg';
 
 export default function CartPage() {
@@ -46,18 +45,24 @@ export default function CartPage() {
     // Link ảnh mặc định chống vỡ ảnh khi tải món trong giỏ
     const DEFAULT_FOOD_IMAGE = 'https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?q=80&w=800';
 
-    // Lấy thông tin xác thực từ localStorage / sessionStorage
     const token = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
     const [currentUsername, setCurrentUsername] = useState(localStorage.getItem('username') || sessionStorage.getItem('username') || '');
     const [currentAvatar, setCurrentAvatar] = useState(localStorage.getItem('avatar') || sessionStorage.getItem('avatar') || '');
     const userRole = localStorage.getItem('role') || sessionStorage.getItem('role') || '';
 
-    // Mã màu chủ đạo theo phong cách Hồn Việt
     const omegaGreen = '#930a0a';
     const omegaGrayBg = '#F8F9FA';
     const bodyFont = '"Quicksand", sans-serif';
 
-    // Lắng nghe sự thay đổi của LocalStorage để cập nhật User State
+    // Hàm chuẩn hóa đường dẫn ảnh từ Backend gửi về
+    const formatImageUrl = (url) => {
+        if (!url || typeof url !== 'string' || url.trim() === '') return DEFAULT_FOOD_IMAGE;
+        if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:') || url.startsWith('data:')) {
+            return url;
+        }
+        return `https://honviet-ryt3.onrender.com${url.startsWith('/') ? '' : '/'}${url}`;
+    };
+
     useEffect(() => {
         const handleStorageChange = () => {
             setCurrentUsername(localStorage.getItem('username') || sessionStorage.getItem('username') || '');
@@ -67,23 +72,19 @@ export default function CartPage() {
         return () => window.removeEventListener('storage', handleStorageChange);
     }, []);
 
-    // Hàm cập nhật số lượng badge giỏ hàng
     const updateCartCount = (currentCart) => {
         const total = currentCart.reduce((sum, item) => sum + item.quantity, 0);
         setCartCount(total);
     };
 
-    // Tải dữ liệu giỏ hàng từ localStorage
     useEffect(() => {
         const savedCart = JSON.parse(localStorage.getItem('honVietCart')) || [];
         setCart(savedCart);
         updateCartCount(savedCart);
     }, []);
 
-    // Tính tổng giá trị đơn hàng
     const totalPrice = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-    // Cập nhật tăng giảm số lượng món ăn
     const updateQuantity = (foodId, newQty) => {
         if (newQty < 1) return;
         const updatedCart = cart.map(item =>
@@ -94,7 +95,6 @@ export default function CartPage() {
         updateCartCount(updatedCart);
     };
 
-    // Xóa một món ăn ra khỏi giỏ
     const removeFromCart = (foodId) => {
         const updatedCart = cart.filter(item => item.foodId !== foodId);
         setCart(updatedCart);
@@ -108,7 +108,6 @@ export default function CartPage() {
         });
     };
 
-    // Xử lý đăng xuất tài khoản
     const handleLogout = () => {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('username');
@@ -125,7 +124,6 @@ export default function CartPage() {
         navigate("/client/auth");
     };
 
-    // Gửi đơn hàng lên backend
     const handleCheckout = async (e) => {
         e.preventDefault();
 
@@ -173,14 +171,12 @@ export default function CartPage() {
                 duration: 3000
             });
 
-            // Làm sạch giỏ hàng sau khi đặt thành công
             setCart([]);
             localStorage.removeItem('honVietCart');
             setCartCount(0);
             setShippingAddress('');
             setPhoneNumber('');
 
-            // Chuyển hướng người dùng về trang Lịch sử đơn hàng
             navigate('/client/orders');
         } catch (error) {
             toast({
@@ -199,15 +195,12 @@ export default function CartPage() {
         <Box bg="#FAFAFA" minH="100vh" pb="0px">
             <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@700;900&family=Oswald:wght@500;700&family=Quicksand:wght@600;700;900&display=swap" rel="stylesheet" />
 
-            {/* TOPBAR HEADER CHỦ ĐẠO */}
             <Box bg={omegaGreen} color="white" py="10px" textAlign="center" fontSize="13px" fontWeight="bold" letterSpacing="1.5px" fontFamily={bodyFont}>
                 HỒN VIỆT — MỸ VỊ CHÍNH THỐNG ĐẬM ĐÀ QUÊ HƯƠNG
             </Box>
 
-            {/* HEADER NAVBAR ĐỒNG BỘ */}
             <Box bg="white" borderBottom="1px solid #EDEDED" py="12px" px={{ base: '15px', md: '30px' }} position="sticky" top="0" zIndex="10" boxShadow="sm">
                 <Flex maxW="1400px" mx="auto" align="center" justify="space-between">
-                    {/* Logo */}
                     <HStack spacing="12px" cursor="pointer" onClick={() => navigate('/')}>
                         <Image src={logoLotus} alt="Hon Viet Logo" boxSize="50px" objectFit="contain" />
                         <Box display={{ base: 'none', sm: 'block' }}>
@@ -220,7 +213,6 @@ export default function CartPage() {
                         </Box>
                     </HStack>
 
-                    {/* Navigation Menu */}
                     <HStack spacing="24px" display={{ base: 'none', lg: 'flex' }} fontSize="13px" fontWeight="700" color="#333333" letterSpacing="0.5px" fontFamily={bodyFont}>
                         <Text _hover={{ color: omegaGreen }} cursor="pointer" onClick={() => navigate('/')}>TRANG CHỦ</Text>
                         <Text _hover={{ color: omegaGreen }} cursor="pointer" onClick={() => navigate('/client/food-menu')}>THỰC ĐƠN</Text>
@@ -229,7 +221,6 @@ export default function CartPage() {
                     </HStack>
 
                     <HStack spacing="25px">
-                        {/* Hotline */}
                         <HStack spacing="8px" display={{ base: 'none', md: 'flex' }} cursor="pointer" onClick={() => navigate('/', { state: { scrollTo: 'footer' } })}>
                             <Text fontSize="20px">📞</Text>
                             <Box>
@@ -239,13 +230,12 @@ export default function CartPage() {
                         </HStack>
 
                         <HStack spacing="12px">
-                            {/* MENU DROPDOWN TÀI KHOẢN CHUẨN */}
                             <Menu isLazy placement="bottom-end">
                                 <MenuButton style={{ outline: 'none', border: 'none' }}>
                                     {token && currentUsername ? (
                                         <Avatar
                                             name={currentUsername}
-                                            src={currentAvatar}
+                                            src={formatImageUrl(currentAvatar)}
                                             size="sm"
                                             bg={omegaGreen}
                                             color="white"
@@ -305,7 +295,6 @@ export default function CartPage() {
                                 </MenuList>
                             </Menu>
 
-                            {/* CART ICON */}
                             <Box position="relative">
                                 <IconButton icon={<FiShoppingCart size="20px" />} aria-label="Cart" variant="solid" bg="#EFEFEF" color="#333" borderRadius="full" boxSize="45px" _hover={{ bg: '#E2E2E2', color: omegaGreen }} />
                                 {cartCount > 0 && (
@@ -319,7 +308,6 @@ export default function CartPage() {
                 </Flex>
             </Box>
 
-            {/* BREADCRUMB */}
             <Box bg={omegaGrayBg} py="10px" px={{ base: '15px', md: '30px' }} borderBottom="1px solid #EAEAEA">
                 <HStack maxW="1400px" mx="auto" fontSize="12px" color="gray.500" fontWeight="600" fontFamily={bodyFont}>
                     <Text cursor="pointer" _hover={{ color: omegaGreen }} onClick={() => navigate('/')}>Trang chủ</Text>
@@ -328,10 +316,8 @@ export default function CartPage() {
                 </HStack>
             </Box>
 
-            {/* NỘI DUNG CHÍNH GIỎ HÀNG */}
             <Flex direction={{ base: 'column', lg: 'row' }} gap="30px" p={{ base: '15px', md: '30px' }} maxW="1400px" mx="auto" mt="10px">
 
-                {/* DANH SÁCH MÓN ĂN */}
                 <Box flex={1.8} bg="white" border="1px solid #EAEAEA" p="20px" display="flex" flexDirection="column" borderRadius="8px">
                     <HStack mb="20px" pb="10px" borderBottom="2px solid #EAEAEA">
                         <Icon as={MdShoppingBag} w="22px" h="22px" color={omegaGreen} />
@@ -357,50 +343,52 @@ export default function CartPage() {
                                     </Tr>
                                 </Thead>
                                 <Tbody>
-                                    {cart.map(item => (
-                                        <Tr key={item.foodId} _hover={{ bg: "gray.50" }} borderBottom="1px solid #EAEAEA">
-                                            <Td py="15px" pl="0px">
-                                                <HStack spacing="12px">
-                                                    {/* CẬP NHẬT: Thêm fallbackSrc & onError chống vỡ ảnh giỏ hàng */}
-                                                    <Image
-                                                        src={item.imageUrl || DEFAULT_FOOD_IMAGE}
-                                                        fallbackSrc={DEFAULT_FOOD_IMAGE}
-                                                        onError={(e) => {
-                                                            e.target.onerror = null;
-                                                            e.target.src = DEFAULT_FOOD_IMAGE;
-                                                        }}
-                                                        w="60px"
-                                                        h="60px"
-                                                        objectFit="cover"
-                                                        borderRadius="4px"
-                                                        border="1px solid #EAEAEA"
-                                                    />
-                                                    <Text fontWeight="800" color="#222" fontSize="13px" textTransform="uppercase" fontFamily={bodyFont}>{item.foodName}</Text>
-                                                </HStack>
-                                            </Td>
-                                            <Td color="gray.700" fontWeight="700" fontSize="13px" fontFamily={bodyFont}>{item.price?.toLocaleString('vi-VN')}đ</Td>
-                                            <Td>
-                                                <HStack justify="center" spacing="0">
-                                                    <Button size="xs" variant="outline" borderRadius="0px" borderColor="#CCC" onClick={() => updateQuantity(item.foodId, item.quantity - 1)}>-</Button>
-                                                    <Text fontWeight="bold" px="12px" fontSize="13px" color="#222" borderTop="1px solid #CCC" borderBottom="1px solid #CCC" h="24px" display="flex" alignItems="center" fontFamily={bodyFont}>{item.quantity}</Text>
-                                                    <Button size="xs" variant="outline" borderRadius="0px" borderColor="#CCC" onClick={() => updateQuantity(item.foodId, item.quantity + 1)}>+</Button>
-                                                </HStack>
-                                            </Td>
-                                            <Td fontWeight="800" color="#A81D1D" fontSize="14px" fontFamily={bodyFont}>
-                                                {(item.price * item.quantity).toLocaleString('vi-VN')}đ
-                                            </Td>
-                                            <Td textAlign="center">
-                                                <IconButton size="sm" variant="ghost" colorScheme="red" icon={<MdDelete size="18px" />} onClick={() => removeFromCart(item.foodId)} _hover={{ bg: 'red.50' }} />
-                                            </Td>
-                                        </Tr>
-                                    ))}
+                                    {cart.map(item => {
+                                        const foodImg = formatImageUrl(item.imageUrl || item.image || item.food?.imageUrl);
+
+                                        return (
+                                            <Tr key={item.foodId} _hover={{ bg: "gray.50" }} borderBottom="1px solid #EAEAEA">
+                                                <Td py="15px" pl="0px">
+                                                    <HStack spacing="12px">
+                                                        <Image
+                                                            src={foodImg}
+                                                            fallbackSrc={DEFAULT_FOOD_IMAGE}
+                                                            onError={(e) => {
+                                                                e.target.onerror = null;
+                                                                e.target.src = DEFAULT_FOOD_IMAGE;
+                                                            }}
+                                                            w="60px"
+                                                            h="60px"
+                                                            objectFit="cover"
+                                                            borderRadius="4px"
+                                                            border="1px solid #EAEAEA"
+                                                        />
+                                                        <Text fontWeight="800" color="#222" fontSize="13px" textTransform="uppercase" fontFamily={bodyFont}>{item.foodName}</Text>
+                                                    </HStack>
+                                                </Td>
+                                                <Td color="gray.700" fontWeight="700" fontSize="13px" fontFamily={bodyFont}>{item.price?.toLocaleString('vi-VN')}đ</Td>
+                                                <Td>
+                                                    <HStack justify="center" spacing="0">
+                                                        <Button size="xs" variant="outline" borderRadius="0px" borderColor="#CCC" onClick={() => updateQuantity(item.foodId, item.quantity - 1)}>-</Button>
+                                                        <Text fontWeight="bold" px="12px" fontSize="13px" color="#222" borderTop="1px solid #CCC" borderBottom="1px solid #CCC" h="24px" display="flex" alignItems="center" fontFamily={bodyFont}>{item.quantity}</Text>
+                                                        <Button size="xs" variant="outline" borderRadius="0px" borderColor="#CCC" onClick={() => updateQuantity(item.foodId, item.quantity + 1)}>+</Button>
+                                                    </HStack>
+                                                </Td>
+                                                <Td fontWeight="800" color="#A81D1D" fontSize="14px" fontFamily={bodyFont}>
+                                                    {(item.price * item.quantity).toLocaleString('vi-VN')}đ
+                                                </Td>
+                                                <Td textAlign="center">
+                                                    <IconButton size="sm" variant="ghost" colorScheme="red" icon={<MdDelete size="18px" />} onClick={() => removeFromCart(item.foodId)} _hover={{ bg: 'red.50' }} />
+                                                </Td>
+                                            </Tr>
+                                        );
+                                    })}
                                 </Tbody>
                             </Table>
                         </Box>
                     )}
                 </Box>
 
-                {/* FORM THÔNG TIN NHẬN HÀNG */}
                 <Box flex={1} bg="white" border="1px solid #EAEAEA" p="20px" h="fit-content" borderRadius="8px">
                     <Text fontSize="14px" fontWeight="800" color="#222222" mb="20px" textTransform="uppercase" borderBottom="2px solid #EAEAEA" pb="10px" letterSpacing="0.5px" fontFamily={bodyFont}>
                         THÔNG TIN GIAO HÀNG
@@ -439,7 +427,6 @@ export default function CartPage() {
                 </Box>
             </Flex>
 
-            {/* DÒNG COPYRIGHT */}
             <Box borderTop="1px solid #EAEAEA" mt="60px" py="20px" textAlign="center" fontSize="11px" color="gray.400" fontWeight="bold" fontFamily={bodyFont}>
                 Copyright © 2026 honvietfoods. Powered by Yuri Project
             </Box>

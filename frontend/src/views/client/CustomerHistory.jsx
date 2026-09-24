@@ -35,6 +35,15 @@ export default function CustomerHistory() {
     const systemFont = '"Comfortaa", "Quicksand", "Segoe UI", sans-serif';
     const bodyFont = '"Quicksand", sans-serif';
 
+    // Hàm chuẩn hóa đường dẫn ảnh từ Backend gửi về
+    const formatImageUrl = (url) => {
+        if (!url || typeof url !== 'string' || url.trim() === '') return DEFAULT_FOOD_IMAGE;
+        if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:') || url.startsWith('data:')) {
+            return url;
+        }
+        return `https://honviet-ryt3.onrender.com${url.startsWith('/') ? '' : '/'}${url}`;
+    };
+
     // Đăng ký listener lắng nghe thay đổi localStorage
     useEffect(() => {
         const handleStorageChange = () => {
@@ -266,11 +275,12 @@ export default function CustomerHistory() {
                                         <Text fontSize="11px" fontWeight="800" color="gray.500" mb="8px" textTransform="uppercase">Sản phẩm đã mua:</Text>
                                         <VStack align="stretch" spacing="8px">
                                             {order.orderDetails.map((detail, idx) => {
-                                                const foodImg = detail.food?.imageUrl || detail.imageUrl || DEFAULT_FOOD_IMAGE;
+                                                const rawUrl = detail.food?.imageUrl || detail.imageUrl || detail.image;
+                                                const foodImg = formatImageUrl(rawUrl);
+
                                                 return (
                                                     <Flex key={idx} justify="space-between" align="center" fontSize="12px" fontFamily={bodyFont}>
                                                         <HStack spacing="10px">
-                                                            {/* CẬP NHẬT: Thêm Image với fallbackSrc & onError chống vỡ hình */}
                                                             <Image
                                                                 src={foodImg}
                                                                 fallbackSrc={DEFAULT_FOOD_IMAGE}
@@ -278,7 +288,7 @@ export default function CustomerHistory() {
                                                                     e.target.onerror = null;
                                                                     e.target.src = DEFAULT_FOOD_IMAGE;
                                                                 }}
-                                                                alt={detail.foodName || 'Món ăn'}
+                                                                alt={detail.foodName || detail.food?.foodName || 'Món ăn'}
                                                                 boxSize="40px"
                                                                 objectFit="cover"
                                                                 borderRadius="4px"
@@ -394,7 +404,7 @@ export default function CustomerHistory() {
                                     {token && currentUsername ? (
                                         <Avatar
                                             name={currentUsername}
-                                            src={currentAvatar}
+                                            src={formatImageUrl(currentAvatar)}
                                             size="sm"
                                             bg={omegaGreen}
                                             color="white"

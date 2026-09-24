@@ -3,9 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from "react-router-dom";
 import {
     Box, Flex, Text, Input, Select, Textarea, Button, Image,
-    Table, Tbody, Td, Th, Thead, Tr, VStack, HStack, useToast, Icon,
+    Table, Tbody, Td, Th, Thead, Tr, VStack, HStack, useToast,
     Center, Spinner, IconButton,
-    // --- TÍCH HỢP CHAKRA UI MENU ĐỒNG BỘ ---
     Menu,
     MenuButton,
     MenuList,
@@ -15,7 +14,6 @@ import {
 } from '@chakra-ui/react';
 import { MdEdit, MdDelete, MdCloudUpload, MdClose } from 'react-icons/md';
 
-// Import chính xác các tài nguyên hình ảnh đồng bộ như LoginRegister
 import logoLotus from "../../assets/logo.jpg";
 
 export default function FoodManager() {
@@ -26,14 +24,12 @@ export default function FoodManager() {
     const toast = useToast();
     const navigate = useNavigate();
 
-    // Link ảnh mặc định phòng trường hợp ảnh bị lỗi/xoá mất
+    // Link ảnh mặc định phòng trường hợp ảnh hỏng link hoàn toàn
     const DEFAULT_FOOD_IMAGE = 'https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?q=80&w=800';
 
-    // Hệ màu sắc nhận diện thương hiệu phẳng Hòn Việt
     const omegaGreen = '#930a0a';
     const omegaGrayBg = '#F5F5F5';
 
-    // Lấy token và tên tài khoản thực tế từ localStorage giống hệt CategoryManager
     const token = localStorage.getItem('accessToken');
     const currentUsername = localStorage.getItem('username') || 'Admin';
 
@@ -65,7 +61,6 @@ export default function FoodManager() {
             .catch(err => console.error("Lỗi lấy danh sách món ăn:", err));
     };
 
-    // XỬ LÝ ĐĂNG XUẤT HỆ THỐNG ĐỒNG BỘ
     const handleLogout = () => {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('username');
@@ -80,24 +75,24 @@ export default function FoodManager() {
         navigate("/login");
     };
 
-    // Hàm kích hoạt trạng thái chỉnh sửa món ăn
     const handleEditClick = (food) => {
         setEditingId(food.foodId);
+        const img = food.imageUrl || food.image || '';
         setFormData({
             foodName: food.foodName,
             price: food.price,
             description: food.description || '',
-            imageUrl: food.imageUrl || '',
+            imageUrl: img,
             categoryId: food.category ? food.category.categoryId : ''
         });
-        setPreviewUrl(formatImageUrl(food.imageUrl));
+        setPreviewUrl(formatImageUrl(img));
         setSelectedFile(null);
     };
 
-    // Hàm bổ trợ thông minh: Tự động chuẩn hóa đường dẫn ảnh từ Backend gửi về
+    // Hàm chuẩn hóa URL hiển thị ảnh
     const formatImageUrl = (url) => {
-        if (!url) return DEFAULT_FOOD_IMAGE;
-        if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:')) {
+        if (!url || url.trim() === '') return DEFAULT_FOOD_IMAGE;
+        if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:') || url.startsWith('data:')) {
             return url;
         }
         return `https://honviet-ryt3.onrender.com${url.startsWith('/') ? '' : '/'}${url}`;
@@ -107,7 +102,8 @@ export default function FoodManager() {
         const file = e.target.files[0];
         if (file) {
             setSelectedFile(file);
-            setPreviewUrl(URL.createObjectURL(file));
+            const localUrl = URL.createObjectURL(file);
+            setPreviewUrl(localUrl);
         }
     };
 
@@ -125,6 +121,7 @@ export default function FoodManager() {
         try {
             let finalImageUrl = formData.imageUrl;
 
+            // Nếu người dùng chọn file từ máy tính -> Gọi API upload
             if (selectedFile) {
                 const uploadFormData = new FormData();
                 uploadFormData.append('file', selectedFile);
@@ -135,9 +132,13 @@ export default function FoodManager() {
                     body: uploadFormData
                 });
 
-                if (!uploadRes.ok) throw new Error("Tải hình ảnh lên máy chủ thất bại!");
-                const uploadData = await uploadRes.json();
-                finalImageUrl = uploadData.imageUrl;
+                if (uploadRes.ok) {
+                    const uploadData = await uploadRes.json();
+                    // SỬA: Lấy linh hoạt cả imageUrl, url, path hoặc chuỗi thuần
+                    finalImageUrl = uploadData.imageUrl || uploadData.url || uploadData.path || (typeof uploadData === 'string' ? uploadData : formData.imageUrl);
+                } else {
+                    console.warn("Upload file không thành công, giữ link cũ/mặc định");
+                }
             }
 
             const foodPayload = {
@@ -212,7 +213,6 @@ export default function FoodManager() {
         <Box bg="white" minH="100vh">
             <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@700;900&family=Oswald:wght@500;700&family=Quicksand:wght@700&display=swap" rel="stylesheet" />
 
-            {/* ===================== ĐỒNG BỘ PHẦN ĐẦU (HEADER) TRANG ADMIN ===================== */}
             <Box bg={omegaGreen} color="white" py="10px" textAlign="center" fontSize="13px" fontWeight="bold" letterSpacing="1.5px">
                 HỒN VIỆT — MỸ VỊ CHÍNH THỐNG ĐẬM ĐÀ QUÊ HƯƠNG (DASHBOARD)
             </Box>
@@ -231,7 +231,6 @@ export default function FoodManager() {
                         </Box>
                     </HStack>
 
-                    {/* Menu Chuyển nhanh giữa các trang quản trị của Admin */}
                     <HStack spacing="15px" fontSize="12px" fontWeight="800">
                         <Text cursor="pointer" color={omegaGreen} borderBottom={`2px solid ${omegaGreen}`} pb="2px">MÓN ĂN</Text>
                         <Text cursor="pointer" color="gray.500" _hover={{ color: omegaGreen }} onClick={() => navigate("/admin/categories")}>DANH MỤC</Text>
@@ -239,7 +238,6 @@ export default function FoodManager() {
                         <Text cursor="pointer" color="gray.500" _hover={{ color: omegaGreen }} onClick={() => navigate("/admin/users")}>THÀNH VIÊN</Text>
                     </HStack>
 
-                    {/* ĐỒNG BỘ HIỂN THỊ TÀI KHOẢN GIỐNG TRANG DANH MỤC */}
                     <HStack spacing="15px">
                         <Menu isLazy placement="bottom-end">
                             <MenuButton cursor="pointer" _hover={{ opacity: 0.85 }}>
@@ -247,13 +245,7 @@ export default function FoodManager() {
                                     <Text fontSize="12px" fontWeight="800" color="gray.700" display={{ base: 'none', md: 'block' }}>
                                         {currentUsername}
                                     </Text>
-                                    <Avatar
-                                        name={currentUsername}
-                                        size="sm"
-                                        bg={omegaGreen}
-                                        color="white"
-                                        fontWeight="bold"
-                                    />
+                                    <Avatar name={currentUsername} size="sm" bg={omegaGreen} color="white" fontWeight="bold" />
                                 </HStack>
                             </MenuButton>
 
@@ -262,7 +254,6 @@ export default function FoodManager() {
                                     <Text fontSize="10px" fontWeight="bold" color="gray.400" letterSpacing="0.5px">ĐANG ĐĂNG NHẬP</Text>
                                     <Text fontSize="13px" fontWeight="800" color="#222" mt="2px">{currentUsername}</Text>
                                 </Box>
-                                <MenuDivider m="0" borderColor="#EAEAEA" />
                                 <MenuDivider m="0" borderColor="#EAEAEA" />
                                 <MenuItem fontSize="12px" fontWeight="800" color="red.600" py="10px" _hover={{ bg: 'red.50' }} onClick={handleLogout}>
                                     ĐĂNG XUẤT
@@ -273,7 +264,6 @@ export default function FoodManager() {
                 </Flex>
             </Box>
 
-            {/* BREADCRUMB ĐỊNH VỊ TRANG */}
             <Box bg={omegaGrayBg} py="10px" px={{ base: '15px', md: '30px' }}>
                 <HStack maxW="1600px" mx="auto" fontSize="12px" color="gray.500" fontWeight="600">
                     <Text cursor="pointer" onClick={() => navigate("/client/food-menu")}>Trang chủ</Text>
@@ -282,11 +272,9 @@ export default function FoodManager() {
                 </HStack>
             </Box>
 
-            {/* ===================== KHỐI NỘI DUNG CHÍNH (HAI CỘT PHẲNG LÌ) ===================== */}
             <Flex direction={{ base: 'column', xl: 'row' }} gap="30px" align="flex-start" p={{ base: '20px 15px', md: '40px 30px' }} maxW="1600px" mx="auto">
 
-                {/* KHU VỰC CỘT TRÁI: FORM NHẬP LIỆU */}
-                <Box flex={1} bg="white" border="1px solid #EAEAEA" p="24px" w="100%" borderRadius="0px" boxShadow="none">
+                <Box flex={1} bg="white" border="1px solid #EAEAEA" p="24px" w="100%" borderRadius="0px">
                     <HStack justify="space-between" mb="20px" pb="10px" borderBottom="2px solid #EAEAEA">
                         <Text fontSize="13px" fontWeight="800" color="#222" textTransform="uppercase" letterSpacing="0.5px">
                             {editingId ? "CẬP NHẬT THÔNG TIN MÓN ĂN" : "THÊM MÓN MỚI"}
@@ -319,17 +307,32 @@ export default function FoodManager() {
 
                             <Box>
                                 <Text fontSize="11px" fontWeight="800" color="gray.700" mb="6px" textTransform="uppercase">Mô tả món ăn</Text>
-                                <Textarea placeholder="Nguyên liệu chính, hương vị đặc trưng..." borderRadius="0px" boxShadow="none" focusBorderColor={omegaGreen} fontSize="13px" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} h="100px" />
+                                <Textarea placeholder="Nguyên liệu chính, hương vị đặc trưng..." borderRadius="0px" boxShadow="none" focusBorderColor={omegaGreen} fontSize="13px" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} h="80px" />
                             </Box>
 
                             <Box>
-                                <Text fontSize="11px" fontWeight="800" color="gray.700" mb="6px" textTransform="uppercase">HÌNH MÓN ĂN</Text>
+                                <Text fontSize="11px" fontWeight="800" color="gray.700" mb="6px" textTransform="uppercase">ĐƯỜNG DẪN ẢNH (URL) HOẶC TẢI FILE</Text>
+                                <Input
+                                    variant="outline"
+                                    borderRadius="0px"
+                                    focusBorderColor={omegaGreen}
+                                    h="36px"
+                                    fontSize="12px"
+                                    placeholder="Dán link ảnh online (https://...)"
+                                    value={formData.imageUrl}
+                                    onChange={e => {
+                                        setFormData({...formData, imageUrl: e.target.value});
+                                        setPreviewUrl(e.target.value);
+                                    }}
+                                    mb="8px"
+                                />
                                 <Input type="file" accept="image/*" onChange={handleFileChange} display="none" id="food-img-upload" />
-                                <Button as="label" htmlFor="food-img-upload" variant="outline" borderRadius="0px" border="1px dashed #CCC" h="45px" w="100%" cursor="pointer" _hover={{ bg: "gray.50" }} leftIcon={<MdCloudUpload />}>
-                                    TẢI FILE ẢNH LÊN
+                                <Button as="label" htmlFor="food-img-upload" variant="outline" borderRadius="0px" border="1px dashed #CCC" h="38px" w="100%" cursor="pointer" _hover={{ bg: "gray.50" }} leftIcon={<MdCloudUpload />} fontSize="12px">
+                                    {selectedFile ? selectedFile.name : "HOẶC TẢI FILE ẢNH TỪ MÁY"}
                                 </Button>
+
                                 {previewUrl && (
-                                    <Center mt="15px" border="1px solid #EAEAEA" p="10px">
+                                    <Center mt="10px" border="1px solid #EAEAEA" p="8px" bg="gray.50">
                                         <Image
                                             src={previewUrl}
                                             fallbackSrc={DEFAULT_FOOD_IMAGE}
@@ -338,7 +341,7 @@ export default function FoodManager() {
                                                 e.target.src = DEFAULT_FOOD_IMAGE;
                                             }}
                                             alt="Preview"
-                                            maxH="150px"
+                                            maxH="120px"
                                             objectFit="contain"
                                         />
                                     </Center>
@@ -352,7 +355,6 @@ export default function FoodManager() {
                     </form>
                 </Box>
 
-                {/* KHU VỰC CỘT PHẢI: BẢNG HIỂN THỊ */}
                 <Box flex={2} bg="white" border="1px solid #EAEAEA" p="24px" w="100%" borderRadius="0px">
                     <Text fontSize="13px" fontWeight="800" color="#222" textTransform="uppercase" letterSpacing="0.5px" mb="20px" pb="10px" borderBottom="2px solid #EAEAEA">
                         THỰC ĐƠN HỆ THỐNG ({foods.length} MÓN ĂN)
@@ -377,40 +379,42 @@ export default function FoodManager() {
                                         </Td>
                                     </Tr>
                                 ) : (
-                                    foods.map((food) => (
-                                        <Tr key={food.foodId} _hover={{ bg: "gray.50" }} borderBottom="1px solid #EAEAEA">
-                                            <Td py="10px" borderColor="#EAEAEA">
-                                                {/* CẬP NHẬT: Thêm fallbackSrc & onError chống vỡ ảnh */}
-                                                <Image
-                                                    src={formatImageUrl(food.imageUrl)}
-                                                    fallbackSrc={DEFAULT_FOOD_IMAGE}
-                                                    onError={(e) => {
-                                                        e.target.onerror = null;
-                                                        e.target.src = DEFAULT_FOOD_IMAGE;
-                                                    }}
-                                                    alt={food.foodName}
-                                                    boxSize="45px"
-                                                    objectFit="cover"
-                                                    border="1px solid #EAEAEA"
-                                                />
-                                            </Td>
-                                            <Td py="14px" borderColor="#EAEAEA" fontSize="12px" fontWeight="800" color="#222" textTransform="uppercase">
-                                                {food.foodName}
-                                            </Td>
-                                            <Td py="14px" borderColor="#EAEAEA" fontSize="12px" color="gray.500" fontWeight="600">
-                                                {food.category ? (food.category.name || food.category.categoryName) : 'Không phân loại'}
-                                            </Td>
-                                            <Td py="14px" borderColor="#EAEAEA" fontSize="12px" fontWeight="800" color={omegaGreen}>
-                                                {food.price ? food.price.toLocaleString('vi-VN') : '0'}đ
-                                            </Td>
-                                            <Td py="14px" borderColor="#EAEAEA">
-                                                <Flex justify="center" gap="5px">
-                                                    <IconButton size="sm" variant="ghost" colorScheme="blue" borderRadius="0px" icon={<MdEdit size="16px" />} onClick={() => handleEditClick(food)} />
-                                                    <IconButton size="sm" variant="ghost" colorScheme="red" borderRadius="0px" icon={<MdDelete size="16px" />} onClick={() => handleDelete(food.foodId)} />
-                                                </Flex>
-                                            </Td>
-                                        </Tr>
-                                    ))
+                                    foods.map((food) => {
+                                        const imgUrl = food.imageUrl || food.image;
+                                        return (
+                                            <Tr key={food.foodId} _hover={{ bg: "gray.50" }} borderBottom="1px solid #EAEAEA">
+                                                <Td py="10px" borderColor="#EAEAEA">
+                                                    <Image
+                                                        src={formatImageUrl(imgUrl)}
+                                                        fallbackSrc={DEFAULT_FOOD_IMAGE}
+                                                        onError={(e) => {
+                                                            e.target.onerror = null;
+                                                            e.target.src = DEFAULT_FOOD_IMAGE;
+                                                        }}
+                                                        alt={food.foodName}
+                                                        boxSize="45px"
+                                                        objectFit="cover"
+                                                        border="1px solid #EAEAEA"
+                                                    />
+                                                </Td>
+                                                <Td py="14px" borderColor="#EAEAEA" fontSize="12px" fontWeight="800" color="#222" textTransform="uppercase">
+                                                    {food.foodName}
+                                                </Td>
+                                                <Td py="14px" borderColor="#EAEAEA" fontSize="12px" color="gray.500" fontWeight="600">
+                                                    {food.category ? (food.category.name || food.category.categoryName) : 'Không phân loại'}
+                                                </Td>
+                                                <Td py="14px" borderColor="#EAEAEA" fontSize="12px" fontWeight="800" color={omegaGreen}>
+                                                    {food.price ? food.price.toLocaleString('vi-VN') : '0'}đ
+                                                </Td>
+                                                <Td py="14px" borderColor="#EAEAEA">
+                                                    <Flex justify="center" gap="5px">
+                                                        <IconButton size="sm" variant="ghost" colorScheme="blue" borderRadius="0px" icon={<MdEdit size="16px" />} onClick={() => handleEditClick(food)} />
+                                                        <IconButton size="sm" variant="ghost" colorScheme="red" borderRadius="0px" icon={<MdDelete size="16px" />} onClick={() => handleDelete(food.foodId)} />
+                                                    </Flex>
+                                                </Td>
+                                            </Tr>
+                                        );
+                                    })
                                 )}
                             </Tbody>
                         </Table>
@@ -418,7 +422,6 @@ export default function FoodManager() {
                 </Box>
             </Flex>
 
-            {/* FOOTER */}
             <Box bg="white" borderTop="1px solid #EAEAEA" py="20px" textAlign="center" fontSize="11px" color="gray.400" fontWeight="bold">
                 Copyright © 2026 honvietfoods. Powered by Yuri Project (Hệ thống quản trị nội bộ)
             </Box>

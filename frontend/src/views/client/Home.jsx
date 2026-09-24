@@ -53,6 +53,15 @@ export default function Home() {
     const [currentAvatar, setCurrentAvatar] = useState(localStorage.getItem('avatar') || '');
     const userRole = localStorage.getItem('role') || '';
 
+    // Hàm chuẩn hóa đường dẫn ảnh từ Backend gửi về
+    const formatImageUrl = (url) => {
+        if (!url || typeof url !== 'string' || url.trim() === '') return DEFAULT_FOOD_IMAGE;
+        if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:') || url.startsWith('data:')) {
+            return url;
+        }
+        return `https://honviet-ryt3.onrender.com${url.startsWith('/') ? '' : '/'}${url}`;
+    };
+
     useEffect(() => {
         const handleStorageChange = () => {
             setCurrentUsername(localStorage.getItem('username'));
@@ -144,7 +153,7 @@ export default function Home() {
                 foodId: food.foodId,
                 foodName: food.foodName,
                 price: food.price,
-                imageUrl: food.imageUrl || DEFAULT_FOOD_IMAGE,
+                imageUrl: formatImageUrl(food.imageUrl),
                 quantity: 1
             });
         }
@@ -228,7 +237,7 @@ export default function Home() {
                                     {token && currentUsername ? (
                                         <Avatar
                                             name={currentUsername}
-                                            src={currentAvatar}
+                                            src={formatImageUrl(currentAvatar)}
                                             size="sm"
                                             bg={omegaGreen}
                                             color="white"
@@ -322,44 +331,47 @@ export default function Home() {
                 </Flex>
 
                 <SimpleGrid columns={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing="30px" mt="30px">
-                    {featuredFoods.map((food) => (
-                        <Box key={food.foodId} bg="white" border="1px solid #EAEAEA" transition="all 0.2s ease" _hover={{ boxShadow: '0 10px 20px rgba(0,0,0,0.05)', borderColor: omegaGreen }} display="flex" flexDirection="column">
-                            <Box overflow="hidden" position="relative">
-                                {/* CẬP NHẬT: Thêm fallbackSrc và onError chống vỡ ảnh */}
-                                <Image
-                                    src={food.imageUrl || DEFAULT_FOOD_IMAGE}
-                                    fallbackSrc={DEFAULT_FOOD_IMAGE}
-                                    onError={(e) => {
-                                        e.target.onerror = null;
-                                        e.target.src = DEFAULT_FOOD_IMAGE;
-                                    }}
-                                    alt={food.foodName}
-                                    w="100%"
-                                    h="220px"
-                                    objectFit="cover"
-                                    transition="transform 0.3s"
-                                    _hover={{ transform: 'scale(1.05)' }}
-                                />
-                                <Badge position="absolute" top="10px" left="10px" bg={omegaGreen} color="white" borderRadius="0px" px="8px" py="3px" fontSize="10px" fontWeight="bold">
-                                    {food.category?.name || food.category?.categoryName || 'MÓN NGON'}
-                                </Badge>
-                            </Box>
-                            <Box p="15px" flex="1" display="flex" flexDirection="column" justify="space-between">
-                                <Box mb="10px">
-                                    <Text color="#222222" fontSize="14px" fontFamily='"Comfortaa", sans-serif' fontWeight="900" noOfLines={1} textTransform="uppercase">
-                                        {food.foodName}
-                                    </Text>
-                                    <Text color="gray.500" fontSize="12px" mt="6px" noOfLines={2} lineHeight="1.5" fontWeight="600">
-                                        {food.description || 'Hương vị thơm ngon đậm đà truyền thống.'}
-                                    </Text>
+                    {featuredFoods.map((food) => {
+                        const foodImg = formatImageUrl(food.imageUrl);
+
+                        return (
+                            <Box key={food.foodId} bg="white" border="1px solid #EAEAEA" transition="all 0.2s ease" _hover={{ boxShadow: '0 10px 20px rgba(0,0,0,0.05)', borderColor: omegaGreen }} display="flex" flexDirection="column">
+                                <Box overflow="hidden" position="relative">
+                                    <Image
+                                        src={foodImg}
+                                        fallbackSrc={DEFAULT_FOOD_IMAGE}
+                                        onError={(e) => {
+                                            e.target.onerror = null;
+                                            e.target.src = DEFAULT_FOOD_IMAGE;
+                                        }}
+                                        alt={food.foodName}
+                                        w="100%"
+                                        h="220px"
+                                        objectFit="cover"
+                                        transition="transform 0.3s"
+                                        _hover={{ transform: 'scale(1.05)' }}
+                                    />
+                                    <Badge position="absolute" top="10px" left="10px" bg={omegaGreen} color="white" borderRadius="0px" px="8px" py="3px" fontSize="10px" fontWeight="bold">
+                                        {food.category?.name || food.category?.categoryName || 'MÓN NGON'}
+                                    </Badge>
                                 </Box>
-                                <Flex justify="space-between" align="center" pt="10px" borderTop="1px solid #F5F5F5">
-                                    <Text color="#A81D1D" fontSize="16px" fontWeight="900">{food.price ? food.price.toLocaleString('vi-VN') : 0}đ</Text>
-                                    <Button size="sm" bg={omegaGreen} color="white" _hover={{ bg: '#052918' }} borderRadius="3px" px="14px" fontSize="11px" fontWeight="bold" onClick={() => addToCart(food)}>MUA NGAY</Button>
-                                </Flex>
+                                <Box p="15px" flex="1" display="flex" flexDirection="column" justify="space-between">
+                                    <Box mb="10px">
+                                        <Text color="#222222" fontSize="14px" fontFamily='"Comfortaa", sans-serif' fontWeight="900" noOfLines={1} textTransform="uppercase">
+                                            {food.foodName}
+                                        </Text>
+                                        <Text color="gray.500" fontSize="12px" mt="6px" noOfLines={2} lineHeight="1.5" fontWeight="600">
+                                            {food.description || 'Hương vị thơm ngon đậm đà truyền thống.'}
+                                        </Text>
+                                    </Box>
+                                    <Flex justify="space-between" align="center" pt="10px" borderTop="1px solid #F5F5F5">
+                                        <Text color="#A81D1D" fontSize="16px" fontWeight="900">{food.price ? food.price.toLocaleString('vi-VN') : 0}đ</Text>
+                                        <Button size="sm" bg={omegaGreen} color="white" _hover={{ bg: '#052918' }} borderRadius="3px" px="14px" fontSize="11px" fontWeight="bold" onClick={() => addToCart(food)}>MUA NGAY</Button>
+                                    </Flex>
+                                </Box>
                             </Box>
-                        </Box>
-                    ))}
+                        );
+                    })}
                 </SimpleGrid>
 
                 <Center mt="50px">
