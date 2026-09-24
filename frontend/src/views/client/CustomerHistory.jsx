@@ -21,6 +21,9 @@ export default function CustomerHistory() {
     const toast = useToast();
     const navigate = useNavigate();
 
+    // Link ảnh mặc định phòng trường hợp đường dẫn ảnh của món ăn bị lỗi / 404
+    const DEFAULT_FOOD_IMAGE = 'https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?q=80&w=800';
+
     const token = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
     const [currentUsername, setCurrentUsername] = useState(localStorage.getItem('username') || sessionStorage.getItem('username') || '');
     const [currentAvatar, setCurrentAvatar] = useState(localStorage.getItem('avatar') || sessionStorage.getItem('avatar') || '');
@@ -257,16 +260,40 @@ export default function CustomerHistory() {
                                     </Text>
                                 </VStack>
 
-                                {/* Chi tiết sản phẩm trong đơn */}
+                                {/* Chi tiết sản phẩm trong đơn kèm ảnh hiển thị mượt mà */}
                                 {order.orderDetails && order.orderDetails.length > 0 && (
                                     <Box bg="gray.50" p="10px" borderRadius="6px" mb="10px">
-                                        <Text fontSize="11px" fontWeight="800" color="gray.500" mb="5px" textTransform="uppercase">Sản phẩm đã mua:</Text>
-                                        {order.orderDetails.map((detail, idx) => (
-                                            <Flex key={idx} justify="space-between" fontSize="12px" fontFamily={bodyFont} py="2px">
-                                                <Text color="gray.700" fontWeight="700">{detail.foodName || 'Món ăn'} x{detail.quantity}</Text>
-                                                <Text color="gray.800" fontWeight="800">{(detail.price * detail.quantity).toLocaleString('vi-VN')}đ</Text>
-                                            </Flex>
-                                        ))}
+                                        <Text fontSize="11px" fontWeight="800" color="gray.500" mb="8px" textTransform="uppercase">Sản phẩm đã mua:</Text>
+                                        <VStack align="stretch" spacing="8px">
+                                            {order.orderDetails.map((detail, idx) => {
+                                                const foodImg = detail.food?.imageUrl || detail.imageUrl || DEFAULT_FOOD_IMAGE;
+                                                return (
+                                                    <Flex key={idx} justify="space-between" align="center" fontSize="12px" fontFamily={bodyFont}>
+                                                        <HStack spacing="10px">
+                                                            {/* CẬP NHẬT: Thêm Image với fallbackSrc & onError chống vỡ hình */}
+                                                            <Image
+                                                                src={foodImg}
+                                                                fallbackSrc={DEFAULT_FOOD_IMAGE}
+                                                                onError={(e) => {
+                                                                    e.target.onerror = null;
+                                                                    e.target.src = DEFAULT_FOOD_IMAGE;
+                                                                }}
+                                                                alt={detail.foodName || 'Món ăn'}
+                                                                boxSize="40px"
+                                                                objectFit="cover"
+                                                                borderRadius="4px"
+                                                                border="1px solid #EAEAEA"
+                                                            />
+                                                            <Box>
+                                                                <Text color="gray.800" fontWeight="800">{detail.foodName || detail.food?.foodName || 'Món ăn'}</Text>
+                                                                <Text color="gray.500" fontSize="11px" fontWeight="600">Số lượng: x{detail.quantity}</Text>
+                                                            </Box>
+                                                        </HStack>
+                                                        <Text color={omegaGreen} fontWeight="800">{(detail.price * detail.quantity).toLocaleString('vi-VN')}đ</Text>
+                                                    </Flex>
+                                                );
+                                            })}
+                                        </VStack>
                                     </Box>
                                 )}
                             </Box>
@@ -407,7 +434,6 @@ export default function CustomerHistory() {
                                                     Trang quản trị (Admin)
                                                 </MenuItem>
                                             )}
-                                            {/* BỔ SUNG: Nút chuyển hướng cho Shipper */}
                                             {userRole.toUpperCase() === 'SHIPPER' && (
                                                 <MenuItem fontSize="13px" fontWeight="700" color="blue.600" py="8px" px="14px" _hover={{ bg: 'blue.50' }} onClick={() => navigate("/shipper/orders")}>
                                                     🚚 Trang giao hàng (Shipper)
@@ -433,7 +459,6 @@ export default function CustomerHistory() {
                                 </MenuList>
                             </Menu>
 
-                            {/* BỔ SUNG: Ẩn Giỏ hàng nếu là vai trò SHIPPER */}
                             {userRole.toUpperCase() !== 'SHIPPER' && (
                                 <Box position="relative">
                                     <IconButton icon={<FiShoppingCart size="20px" />} aria-label="Cart" variant="solid" bg="#EFEFEF" color="#333" borderRadius="full" boxSize="45px" _hover={{ bg: '#E2E2E2', color: omegaGreen }} onClick={() => navigate("/client/cart")} />

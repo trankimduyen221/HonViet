@@ -41,6 +41,9 @@ export default function FoodMenu() {
     const navigate = useNavigate();
     const toast = useToast();
 
+    // Link ảnh mặc định phòng trường hợp đường dẫn ảnh backend bị hỏng / 404
+    const DEFAULT_FOOD_IMAGE = 'https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?q=80&w=800';
+
     const token = localStorage.getItem('accessToken');
     const [currentUsername, setCurrentUsername] = useState(localStorage.getItem('username'));
     const [currentAvatar, setCurrentAvatar] = useState(localStorage.getItem('avatar') || '');
@@ -55,7 +58,7 @@ export default function FoodMenu() {
         return () => window.removeEventListener('storage', handleStorageChange);
     }, []);
 
-    // 🔴 BỔ SUNG PHÂN QUYỀN: Tự động điều hướng Admin hoặc Shipper sang trang chuyên biệt
+    // Tự động điều hướng Admin hoặc Shipper sang trang chuyên biệt
     useEffect(() => {
         if (!token) return;
 
@@ -121,7 +124,6 @@ export default function FoodMenu() {
     };
 
     const addToCart = (food) => {
-        // Chặn lần 2 trong hàm xử lý nếu tài khoản là SHIPPER
         if (userRole.toUpperCase() === 'SHIPPER') {
             toast({
                 title: 'Không thể thực hiện',
@@ -143,7 +145,7 @@ export default function FoodMenu() {
                 foodId: food.foodId,
                 foodName: food.foodName,
                 price: food.price,
-                imageUrl: food.imageUrl,
+                imageUrl: food.imageUrl || DEFAULT_FOOD_IMAGE,
                 quantity: 1
             });
         }
@@ -263,7 +265,6 @@ export default function FoodMenu() {
                                                     Trang quản trị (Admin)
                                                 </MenuItem>
                                             )}
-                                            {/* 🔴 BỔ SUNG: Nút truy cập cho Shipper */}
                                             {userRole.toUpperCase() === 'SHIPPER' && (
                                                 <MenuItem fontSize="13px" fontWeight="700" color="blue.600" py="8px" px="14px" _hover={{ bg: 'blue.50' }} onClick={() => navigate("/shipper/orders")}>
                                                     🚚 Trang giao hàng (Shipper)
@@ -289,7 +290,6 @@ export default function FoodMenu() {
                                 </MenuList>
                             </Menu>
 
-                            {/* 🔴 BỔ SUNG: Ẩn Giỏ hàng đối với tài khoản Shipper */}
                             {userRole.toUpperCase() !== 'SHIPPER' && (
                                 <Box position="relative">
                                     <IconButton icon={<FiShoppingCart size="20px" />} aria-label="Cart" variant="solid" bg="#EFEFEF" color="#333" borderRadius="full" boxSize="45px" _hover={{ bg: '#E2E2E2', color: omegaGreen }} onClick={() => navigate("/client/cart")} />
@@ -391,7 +391,21 @@ export default function FoodMenu() {
                             >
                                 <Flex direction="column" h="100%" justify="space-between">
                                     <Box overflow="hidden" position="relative">
-                                        <Image src={food.imageUrl || 'https://via.placeholder.com/300x200?text=Hon+Viet+Food'} alt={food.foodName} w="100%" h="210px" objectFit="cover" transition="transform 0.5s" _hover={{ transform: 'scale(1.06)' }} />
+                                        {/* CẬP NHẬT: Thêm fallbackSrc và onError chống vỡ ảnh */}
+                                        <Image
+                                            src={food.imageUrl || DEFAULT_FOOD_IMAGE}
+                                            fallbackSrc={DEFAULT_FOOD_IMAGE}
+                                            onError={(e) => {
+                                                e.target.onerror = null;
+                                                e.target.src = DEFAULT_FOOD_IMAGE;
+                                            }}
+                                            alt={food.foodName}
+                                            w="100%"
+                                            h="210px"
+                                            objectFit="cover"
+                                            transition="transform 0.5s"
+                                            _hover={{ transform: 'scale(1.06)' }}
+                                        />
                                         <Badge position="absolute" top="10px" left="10px" bg={omegaGreen} color="white" borderRadius="4px" px="8px" py="3px" fontSize="9px" fontWeight="bold" fontFamily='"Quicksand", sans-serif' letterSpacing="0.5px">
                                             {food.category?.name || food.category?.categoryName || 'MÓN ĂN'}
                                         </Badge>
@@ -412,7 +426,6 @@ export default function FoodMenu() {
                                                 {food.price ? food.price.toLocaleString('vi-VN') : 0}đ
                                             </Text>
 
-                                            {/* 🔴 BỔ SUNG: Thay đổi nút mua nếu là vai trò SHIPPER */}
                                             {userRole.toUpperCase() === 'SHIPPER' ? (
                                                 <Badge colorScheme="blue" px="10px" py="4px" borderRadius="full" fontSize="10px">
                                                     Chỉ xem (Shipper)

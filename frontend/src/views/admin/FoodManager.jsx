@@ -26,6 +26,9 @@ export default function FoodManager() {
     const toast = useToast();
     const navigate = useNavigate();
 
+    // Link ảnh mặc định phòng trường hợp ảnh bị lỗi/xoá mất
+    const DEFAULT_FOOD_IMAGE = 'https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?q=80&w=800';
+
     // Hệ màu sắc nhận diện thương hiệu phẳng Hòn Việt
     const omegaGreen = '#930a0a';
     const omegaGrayBg = '#F5F5F5';
@@ -69,7 +72,7 @@ export default function FoodManager() {
         localStorage.removeItem('role');
         toast({
             title: "Đã đăng xuất",
-            description: "Đăng xuất thành công",
+            description: "Đăng xuất thành công",
             status: "info",
             duration: 2000,
             position: "top"
@@ -93,7 +96,7 @@ export default function FoodManager() {
 
     // Hàm bổ trợ thông minh: Tự động chuẩn hóa đường dẫn ảnh từ Backend gửi về
     const formatImageUrl = (url) => {
-        if (!url) return 'https://via.placeholder.com/150';
+        if (!url) return DEFAULT_FOOD_IMAGE;
         if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:')) {
             return url;
         }
@@ -180,7 +183,7 @@ export default function FoodManager() {
     };
 
     const handleDelete = (id) => {
-        if (window.confirm("Món ăn này sẽ bị xóa khỏi hệ thống thực đơn Hồn Việt?")) {
+        if (window.confirm("Món ăn này sẽ bị xóa khỏi hệ thống thực đơn Hồn Việt?")) {
             fetch(`https://honviet-ryt3.onrender.com/api/foods/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -327,7 +330,17 @@ export default function FoodManager() {
                                 </Button>
                                 {previewUrl && (
                                     <Center mt="15px" border="1px solid #EAEAEA" p="10px">
-                                        <Image src={previewUrl} alt="Preview" maxH="150px" objectFit="contain" />
+                                        <Image
+                                            src={previewUrl}
+                                            fallbackSrc={DEFAULT_FOOD_IMAGE}
+                                            onError={(e) => {
+                                                e.target.onerror = null;
+                                                e.target.src = DEFAULT_FOOD_IMAGE;
+                                            }}
+                                            alt="Preview"
+                                            maxH="150px"
+                                            objectFit="contain"
+                                        />
                                     </Center>
                                 )}
                             </Box>
@@ -367,7 +380,19 @@ export default function FoodManager() {
                                     foods.map((food) => (
                                         <Tr key={food.foodId} _hover={{ bg: "gray.50" }} borderBottom="1px solid #EAEAEA">
                                             <Td py="10px" borderColor="#EAEAEA">
-                                                <Image src={formatImageUrl(food.imageUrl)} alt={food.foodName} boxSize="45px" objectFit="cover" border="1px solid #EAEAEA" />
+                                                {/* CẬP NHẬT: Thêm fallbackSrc & onError chống vỡ ảnh */}
+                                                <Image
+                                                    src={formatImageUrl(food.imageUrl)}
+                                                    fallbackSrc={DEFAULT_FOOD_IMAGE}
+                                                    onError={(e) => {
+                                                        e.target.onerror = null;
+                                                        e.target.src = DEFAULT_FOOD_IMAGE;
+                                                    }}
+                                                    alt={food.foodName}
+                                                    boxSize="45px"
+                                                    objectFit="cover"
+                                                    border="1px solid #EAEAEA"
+                                                />
                                             </Td>
                                             <Td py="14px" borderColor="#EAEAEA" fontSize="12px" fontWeight="800" color="#222" textTransform="uppercase">
                                                 {food.foodName}

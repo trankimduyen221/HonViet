@@ -16,13 +16,15 @@ import {
     Spinner,
     Center,
     HStack,
+    VStack,
     Image,
     Menu,
     MenuButton,
     MenuList,
     MenuItem,
     Avatar,
-    MenuDivider
+    MenuDivider,
+    Collapse
 } from '@chakra-ui/react';
 import {
     createColumnHelper,
@@ -34,7 +36,7 @@ import {
 import axios from 'axios';
 import * as React from 'react';
 import { useNavigate } from "react-router-dom";
-import { MdCancel, MdCheckCircle, MdOutlineError, MdRefresh } from 'react-icons/md';
+import { MdCancel, MdCheckCircle, MdOutlineError, MdRefresh, MdKeyboardArrowDown, MdKeyboardArrowUp } from 'react-icons/md';
 import { FiTruck } from 'react-icons/fi';
 
 // Import chính xác các tài nguyên hình ảnh đồng bộ
@@ -47,14 +49,23 @@ export default function OrdersTable() {
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState('');
     const [sorting, setSorting] = React.useState([]);
+    const [expandedRows, setExpandedRows] = React.useState({});
     const toast = useToast();
     const navigate = useNavigate();
+
+    // Link ảnh mặc định chống vỡ ảnh sản phẩm trong đơn hàng
+    const DEFAULT_FOOD_IMAGE = 'https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?q=80&w=800';
 
     // Hệ màu sắc nhận diện thương hiệu phẳng Hòn Việt
     const omegaGreen = '#930a0a';
     const omegaGrayBg = '#F5F5F5';
     const token = localStorage.getItem('accessToken');
     const currentUsername = localStorage.getItem('username') || 'Admin';
+
+    // Đóng/Mở xem chi tiết danh sách món ăn trong đơn
+    const toggleRow = (id) => {
+        setExpandedRows(prev => ({ ...prev, [id]: !prev[id] }));
+    };
 
     // XỬ LÝ ĐĂNG XUẤT HỆ THỐNG ĐỒNG BỘ
     const handleLogout = () => {
@@ -98,7 +109,7 @@ export default function OrdersTable() {
         if (!orderId) {
             toast({
                 title: "Lỗi dữ liệu",
-                description: "ID đơn hàng không hợp lệ (undefined)!",
+                description: "ID đơn hàng không hợp lệ!",
                 status: "warning",
                 position: "top"
             });
@@ -144,10 +155,23 @@ export default function OrdersTable() {
             header: () => <Text fontSize="11px" color="#222" fontWeight="800">MÃ ĐƠN</Text>,
             cell: (info) => {
                 const displayId = info.row.original.orderId || info.row.original.id;
+                const isExpanded = !!expandedRows[displayId];
                 return (
-                    <Text color="gray.600" fontSize="12px" fontWeight="700">
-                        #{displayId}
-                    </Text>
+                    <HStack spacing="6px">
+                        <Button
+                            size="xs"
+                            variant="ghost"
+                            p="0"
+                            minW="20px"
+                            h="20px"
+                            onClick={() => toggleRow(displayId)}
+                        >
+                            <Icon as={isExpanded ? MdKeyboardArrowUp : MdKeyboardArrowDown} boxSize="18px" />
+                        </Button>
+                        <Text color="gray.600" fontSize="12px" fontWeight="700">
+                            #{displayId}
+                        </Text>
+                    </HStack>
                 );
             },
         }),
@@ -169,6 +193,15 @@ export default function OrdersTable() {
                 </Text>
             ),
         }),
+        columnHelper.accessor('shippingAddress', {
+            id: 'shippingAddress',
+            header: () => <Text fontSize="11px" color="#222" fontWeight="800">ĐỊA CHỈ GIAO</Text>,
+            cell: (info) => (
+                <Text color="gray.600" fontSize="12px" fontWeight="600" maxW="200px" isTruncated>
+                    {info.getValue() || 'Chưa cung cấp'}
+                </Text>
+            ),
+        }),
         columnHelper.accessor('totalPrice', {
             id: 'totalPrice',
             header: () => <Text fontSize="11px" color="#222" fontWeight="800">TỔNG TIỀN</Text>,
@@ -187,7 +220,7 @@ export default function OrdersTable() {
                 let iconColor = 'orange.500';
                 let statusText = 'Chờ xử lý';
 
-                if (status === 'Success' || status === 'Sucess') {
+                if (status === 'Success' || status === 'Sucess' || status === 'DELIVERED') {
                     iconAs = MdCheckCircle;
                     iconColor = 'green.500';
                     statusText = 'Thành công';
@@ -195,7 +228,7 @@ export default function OrdersTable() {
                     iconAs = FiTruck;
                     iconColor = 'blue.500';
                     statusText = 'Đang giao';
-                } else if (status === 'Canceled') {
+                } else if (status === 'Canceled' || status === 'CANCELLED') {
                     iconAs = MdCancel;
                     iconColor = 'red.500';
                     statusText = 'Đã hủy';
@@ -387,20 +420,85 @@ export default function OrdersTable() {
                             <Tbody>
                                 {table.getRowModel().rows.length === 0 ? (
                                     <Tr>
-                                        <Td colSpan="6" textAlign="center" py="40px" fontSize="12px" fontWeight="bold" color="gray.400">
+                                        <Td colSpan="7" textAlign="center" py="40px" fontSize="12px" fontWeight="bold" color="gray.400">
                                             Hệ thống chưa ghi nhận dữ liệu đơn hàng nào từ khách hàng.
                                         </Td>
                                     </Tr>
                                 ) : (
-                                    table.getRowModel().rows.map((row) => (
-                                        <Tr key={row.id} _hover={{ bg: "gray.50" }} borderBottom="1px solid #EAEAEA">
-                                            {row.getVisibleCells().map((cell) => (
-                                                <Td key={cell.id} py="14px" borderColor="#EAEAEA">
-                                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                                </Td>
-                                            ))}
-                                        </Tr>
-                                    ))
+                                    table.getRowModel().rows.map((row) => {
+                                        const orderObj = row.original;
+                                        const oId = orderObj.orderId || orderObj.id;
+                                        const isExpanded = !!expandedRows[oId];
+
+                                        return (
+                                            <React.Fragment key={row.id}>
+                                                <Tr _hover={{ bg: "gray.50" }} borderBottom="1px solid #EAEAEA">
+                                                    {row.getVisibleCells().map((cell) => (
+                                                        <Td key={cell.id} py="14px" borderColor="#EAEAEA">
+                                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                        </Td>
+                                                    ))}
+                                                </Tr>
+
+                                                {/* DÒNG HIỂN THỊ CHI TIẾT CÁC MÓN ĂN TRONG ĐƠN */}
+                                                {isExpanded && (
+                                                    <Tr bg="gray.50">
+                                                        <Td colSpan="7" p="15px" borderColor="#EAEAEA">
+                                                            <Box bg="white" border="1px solid #EAEAEA" p="15px" borderRadius="4px">
+                                                                <Text fontSize="11px" fontWeight="800" color="gray.500" mb="10px" textTransform="uppercase">
+                                                                    CHI TIẾT MÓN ĂN ĐẶT (ĐƠN #{oId})
+                                                                </Text>
+
+                                                                {orderObj.orderDetails && orderObj.orderDetails.length > 0 ? (
+                                                                    <VStack align="stretch" spacing="10px">
+                                                                        {orderObj.orderDetails.map((detail, idx) => {
+                                                                            const foodImg = detail.food?.imageUrl || detail.imageUrl || DEFAULT_FOOD_IMAGE;
+                                                                            const foodName = detail.foodName || detail.food?.foodName || 'Món ăn';
+
+                                                                            return (
+                                                                                <Flex key={idx} justify="space-between" align="center" fontSize="12px" borderBottom="1px solid #F5F5F5" pb="8px">
+                                                                                    <HStack spacing="12px">
+                                                                                        {/* CẬP NHẬT: Thêm Image với fallbackSrc & onError chống vỡ hình */}
+                                                                                        <Image
+                                                                                            src={foodImg}
+                                                                                            fallbackSrc={DEFAULT_FOOD_IMAGE}
+                                                                                            onError={(e) => {
+                                                                                                e.target.onerror = null;
+                                                                                                e.target.src = DEFAULT_FOOD_IMAGE;
+                                                                                            }}
+                                                                                            alt={foodName}
+                                                                                            boxSize="40px"
+                                                                                            objectFit="cover"
+                                                                                            border="1px solid #EAEAEA"
+                                                                                            borderRadius="4px"
+                                                                                        />
+                                                                                        <Box>
+                                                                                            <Text fontWeight="800" color="#222">{foodName}</Text>
+                                                                                            <Text fontSize="11px" color="gray.500" fontWeight="600">
+                                                                                                Đơn giá: {detail.price ? detail.price.toLocaleString('vi-VN') : 0}đ | Số lượng: x{detail.quantity}
+                                                                                            </Text>
+                                                                                        </Box>
+                                                                                    </HStack>
+
+                                                                                    <Text fontWeight="800" color={omegaGreen}>
+                                                                                        {((detail.price || 0) * (detail.quantity || 1)).toLocaleString('vi-VN')}đ
+                                                                                    </Text>
+                                                                                </Flex>
+                                                                            );
+                                                                        })}
+                                                                    </VStack>
+                                                                ) : (
+                                                                    <Text fontSize="12px" color="gray.400" fontWeight="bold">
+                                                                        Chưa có thông tin danh sách món ăn chi tiết cho đơn hàng này.
+                                                                    </Text>
+                                                                )}
+                                                            </Box>
+                                                        </Td>
+                                                    </Tr>
+                                                )}
+                                            </React.Fragment>
+                                        );
+                                    })
                                 )}
                             </Tbody>
                         </Table>

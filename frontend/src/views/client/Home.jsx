@@ -40,7 +40,9 @@ export default function Home() {
     const navigate = useNavigate();
     const toast = useToast();
 
-    // Khai báo thêm state tìm kiếm nhanh trên Header của trang Home nếu muốn truyền chữ đi
+    // Link ảnh mặc định phòng trường hợp link backend bị hỏng / 404
+    const DEFAULT_FOOD_IMAGE = 'https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?q=80&w=800';
+
     const [homeSearch, setHomeSearch] = useState('');
 
     const introRef = useRef(null);
@@ -142,7 +144,7 @@ export default function Home() {
                 foodId: food.foodId,
                 foodName: food.foodName,
                 price: food.price,
-                imageUrl: food.imageUrl,
+                imageUrl: food.imageUrl || DEFAULT_FOOD_IMAGE,
                 quantity: 1
             });
         }
@@ -158,7 +160,6 @@ export default function Home() {
         });
     };
 
-    // Hàm xử lý khi click vào kính lúp hoặc gõ tìm kiếm chuyển tiếp
     const handleHeaderSearch = () => {
         navigate('/client/menu', { state: { focusSearch: true } });
     };
@@ -167,7 +168,7 @@ export default function Home() {
         return (
             <Center minH="50vh" flexDirection="column" gap={3}>
                 <Spinner size="xl" color={omegaGreen} thickness="4px" />
-                <Text fontWeight="semibold" color="gray.600">Đang tải Hồn Việt...</Text>
+                <Text fontWeight="semibold" color="gray.600">Đang tải Hồn Việt...</Text>
             </Center>
         );
     }
@@ -210,7 +211,6 @@ export default function Home() {
                         </HStack>
 
                         <HStack spacing="12px">
-                            {/* CẬP NHẬT: Click vào đây sẽ điều hướng sang trang Menu và kích hoạt ô tìm kiếm */}
                             <IconButton
                                 icon={<FiSearch size="20px" />}
                                 aria-label="Search"
@@ -325,7 +325,21 @@ export default function Home() {
                     {featuredFoods.map((food) => (
                         <Box key={food.foodId} bg="white" border="1px solid #EAEAEA" transition="all 0.2s ease" _hover={{ boxShadow: '0 10px 20px rgba(0,0,0,0.05)', borderColor: omegaGreen }} display="flex" flexDirection="column">
                             <Box overflow="hidden" position="relative">
-                                <Image src={food.imageUrl || 'https://via.placeholder.com/300x200?text=Hon+Viet+Food'} alt={food.foodName} w="100%" h="220px" objectFit="cover" transition="transform 0.3s" _hover={{ transform: 'scale(1.05)' }} />
+                                {/* CẬP NHẬT: Thêm fallbackSrc và onError chống vỡ ảnh */}
+                                <Image
+                                    src={food.imageUrl || DEFAULT_FOOD_IMAGE}
+                                    fallbackSrc={DEFAULT_FOOD_IMAGE}
+                                    onError={(e) => {
+                                        e.target.onerror = null;
+                                        e.target.src = DEFAULT_FOOD_IMAGE;
+                                    }}
+                                    alt={food.foodName}
+                                    w="100%"
+                                    h="220px"
+                                    objectFit="cover"
+                                    transition="transform 0.3s"
+                                    _hover={{ transform: 'scale(1.05)' }}
+                                />
                                 <Badge position="absolute" top="10px" left="10px" bg={omegaGreen} color="white" borderRadius="0px" px="8px" py="3px" fontSize="10px" fontWeight="bold">
                                     {food.category?.name || food.category?.categoryName || 'MÓN NGON'}
                                 </Badge>

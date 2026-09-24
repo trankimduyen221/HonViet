@@ -43,6 +43,9 @@ export default function CartPage() {
     const navigate = useNavigate();
     const toast = useToast();
 
+    // Link ảnh mặc định chống vỡ ảnh khi tải món trong giỏ
+    const DEFAULT_FOOD_IMAGE = 'https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?q=80&w=800';
+
     // Lấy thông tin xác thực từ localStorage / sessionStorage
     const token = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
     const [currentUsername, setCurrentUsername] = useState(localStorage.getItem('username') || sessionStorage.getItem('username') || '');
@@ -226,7 +229,7 @@ export default function CartPage() {
                     </HStack>
 
                     <HStack spacing="25px">
-                        {/* Hotline Hotline */}
+                        {/* Hotline */}
                         <HStack spacing="8px" display={{ base: 'none', md: 'flex' }} cursor="pointer" onClick={() => navigate('/', { state: { scrollTo: 'footer' } })}>
                             <Text fontSize="20px">📞</Text>
                             <Box>
@@ -358,7 +361,20 @@ export default function CartPage() {
                                         <Tr key={item.foodId} _hover={{ bg: "gray.50" }} borderBottom="1px solid #EAEAEA">
                                             <Td py="15px" pl="0px">
                                                 <HStack spacing="12px">
-                                                    <Image src={item.imageUrl || 'https://via.placeholder.com/60'} w="60px" h="60px" objectFit="cover" borderRadius="4px" border="1px solid #EAEAEA" />
+                                                    {/* CẬP NHẬT: Thêm fallbackSrc & onError chống vỡ ảnh giỏ hàng */}
+                                                    <Image
+                                                        src={item.imageUrl || DEFAULT_FOOD_IMAGE}
+                                                        fallbackSrc={DEFAULT_FOOD_IMAGE}
+                                                        onError={(e) => {
+                                                            e.target.onerror = null;
+                                                            e.target.src = DEFAULT_FOOD_IMAGE;
+                                                        }}
+                                                        w="60px"
+                                                        h="60px"
+                                                        objectFit="cover"
+                                                        borderRadius="4px"
+                                                        border="1px solid #EAEAEA"
+                                                    />
                                                     <Text fontWeight="800" color="#222" fontSize="13px" textTransform="uppercase" fontFamily={bodyFont}>{item.foodName}</Text>
                                                 </HStack>
                                             </Td>
