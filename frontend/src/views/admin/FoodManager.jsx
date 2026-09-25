@@ -91,10 +91,14 @@ export default function FoodManager() {
 
     // Hàm chuẩn hóa URL hiển thị ảnh
     const formatImageUrl = (url) => {
-        if (!url || url.trim() === '') return DEFAULT_FOOD_IMAGE;
+        if (!url || typeof url !== 'string' || url.trim() === '') return DEFAULT_FOOD_IMAGE;
+
+        // Nếu đã là URL hoàn chỉnh (Cloudinary, HTTPS, HTTP, Blob, Base64) -> Giữ nguyên
         if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:') || url.startsWith('data:')) {
             return url;
         }
+
+        // Fallback phòng trường hợp còn dữ liệu đĩa local cũ trong DB
         return `https://honviet-ryt3.onrender.com${url.startsWith('/') ? '' : '/'}${url}`;
     };
 

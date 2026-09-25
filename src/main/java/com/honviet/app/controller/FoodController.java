@@ -1,8 +1,9 @@
 package com.honviet.app.controller;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
 import com.honviet.app.entity.Food;
 import com.honviet.app.service.FoodService;
-import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -10,10 +11,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 
@@ -23,6 +20,13 @@ public class FoodController {
 
     @Autowired
     private FoodService foodService;
+
+    // Đọc thông số cấu hình Cloudinary từ Environment Variables
+    private final Cloudinary cloudinary = new Cloudinary(ObjectUtils.asMap(
+            "cloud_name", System.getenv("CLOUDINARY_CLOUD_NAME"),
+            "api_key", System.getenv("CLOUDINARY_API_KEY"),
+            "api_secret", System.getenv("CLOUDINARY_API_SECRET")
+    ));
 
     // 1. LẤY HẾT MÓN ĂN (Read All)
     @GetMapping
@@ -51,7 +55,7 @@ public class FoodController {
         return foodService.saveFood(food);
     }
 
-    // 5. XÓA MÓN ĂN (Delete)
+    // 5. XÓA MÓN ĂN (Delete) - CHỈ ADMIN ĐƯỢC PHÉP
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public String deleteFoodById(@PathVariable Integer id) {
@@ -59,12 +63,10 @@ public class FoodController {
         return "Xóa món ăn thành công: " + id;
     }
 
-    // 6. ADMIN UPLOAD HÌNH ĐỒ ĂN (Đã sửa lỗi gán cứng localhost)
+    // 6. ADMIN UPLOAD HÌNH ĐỒ ĂN LÊN CLOUDINARY
     @PostMapping("/upload")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> uploadFoodImage(
-            @RequestParam("file") MultipartFile file,
-            HttpServletRequest request) { // Thêm request để tự động bắt Domain đang chạy
+    public ResponseEntity<?> uploadFoodImage(@RequestParam("file") MultipartFile file) {
 
         // 1. Kiểm tra nếu file rỗng
         if (file.isEmpty()) {
@@ -84,35 +86,18 @@ public class FoodController {
         }
 
         try {
-            // Xác định thư mục lưu trữ ảnh
-            String uploadDir = "uploads/foods/";
-            File directory = new File(uploadDir);
-            if (!directory.exists()) {
-                directory.mkdirs();
-            }
+            // Upload trực tiếp file lên Cloudinary vào thư mục "foods"
+            Map uploadResult = cloudinary.uploader().upload(file.getBytes(),
+                    ObjectUtils.asMap("folder", "foods"));
 
-            // Sinh tên file duy nhất bằng timestamp
-            String originalFileName = file.getOriginalFilename() != null ? file.getOriginalFilename().replaceAll("\\s+", "_") : "image.jpg";
-            String fileName = System.currentTimeMillis() + "_" + originalFileName;
+            // Lấy HTTPS URL ảnh vĩnh viễn từ Cloudinary
+            String imageUrl = uploadResult.get("secure_url").toString();
 
-            Path path = Paths.get(uploadDir + fileName).toAbsolutePath();
-
-            // Ghi file
-            Files.write(path, file.getBytes());
-
-            // ⭐ ĐIỂM SỬA QUAN TRỌNG: Tự động lấy domain (Ví dụ: https://honviet-ryt3.onrender.com)
-            // Thay vì cố định http://localhost:8080
-            String baseUrl = request.getScheme() + "://" + request.getServerName()
-                    + (request.getServerPort() == 80 || request.getServerPort() == 443 ? "" : ":" + request.getServerPort());
-
-            String imageUrl = baseUrl + "/uploads/foods/" + fileName;
-
-            // Trả về URL hoàn chỉnh
             return ResponseEntity.ok(Map.of("imageUrl", imageUrl));
 
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("message", "Lỗi hệ thống khi ghi file ảnh: " + e.getMessage()));
+                    .body(Map.of("message", "Lỗi khi tải ảnh lên Cloudinary: " + e.getMessage()));
         }
     }
 }

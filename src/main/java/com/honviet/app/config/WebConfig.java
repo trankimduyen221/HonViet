@@ -20,15 +20,4 @@ public class WebConfig implements WebMvcConfigurer {
                 .allowedHeaders("*")
                 .allowCredentials(true); // Cho phép gửi kèm Cookie / Token xác thực
     }
-
-    @Override
-    public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // Lấy URI chuẩn tuyệt đối của thư mục "uploads" (Chạy tốt trên cả Windows và Linux/Render)
-        Path uploadDir = Paths.get("uploads");
-        String uploadPath = uploadDir.toUri().toString();
-
-        // Biến /uploads/** thành tài nguyên tĩnh truy cập công khai
-        registry.addResourceHandler("/uploads/**")
-                .addResourceLocations(uploadPath);
-    }
 }
