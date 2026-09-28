@@ -48,8 +48,8 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // 1. MỞ QUYỀN TRANG CHỦ & ROUTE XỬ LÝ LỖI (Tránh lỗi 403 khi mở link Render trực tiếp)
-                        .requestMatchers("/", "/error", "/favicon.ico").permitAll()
+                        // 1. MỞ QUYỀN TRANG CHỦ, HEALTHCHECK & ROUTE XỬ LÝ LỖI
+                        .requestMatchers("/", "/ping", "/error", "/favicon.ico").permitAll()
 
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
