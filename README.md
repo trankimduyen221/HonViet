@@ -2,11 +2,8 @@
 
 <div align="center">
   <p><b>Ứng dụng web full-stack hiện đại hỗ trợ khám phá ẩm thực Việt Nam và đặt món ăn trực tuyến.</b></p>
-  
-  <p>
-    <a href="[https://hon-viet-mu.vercel.app/](https://hon-viet-mu.vercel.app/)" target="_blank">🌐 Live Frontend Demo</a> •
-    <a href="[https://honviet-ryt3.onrender.com/](https://honviet-ryt3.onrender.com/)" target="_blank">⚙️ Backend API</a>
-  </p>
+ * **Live Frontend Demo:** https://hon-viet-mu.vercel.app
+* **Backend API:** https://honviet-ryt3.onrender.com
 </div>
 
 ---
